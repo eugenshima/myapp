@@ -28,13 +28,14 @@ func createConn() (*pgx.Conn, error) {
 
 func main() {
 	e := echo.New()
+	fmt.Println(rep.repFunc())
 	str := "Greetings, traveller"
 	e.GET("/bd", func(c echo.Context) error {
 		return c.String(http.StatusOK, str)
 	})
 	e.GET("/", func(c echo.Context) error {
 		createConn()
-		repository.get()
+
 		return c.String(http.StatusOK, "Interract with PostgreSQL")
 	})
 	e.Logger.Fatal(e.Start(":1323"))

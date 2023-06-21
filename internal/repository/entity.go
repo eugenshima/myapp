@@ -1,4 +1,4 @@
-package repository
+package rep
 
 //here will be a model of our entity from database
 import (
@@ -8,6 +8,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
+
+func repFunc() string {
+	return "func a"
+}
 
 type Entity struct {
 	ID        uuid.UUID `db:"id"`
