@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/eugenshima/myapp/internal/repository"
 	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v4"
 )
@@ -13,12 +12,14 @@ import (
 func createConn() (*pgx.Conn, error) {
 	connConfig, err := pgx.ParseConfig("postgres://eugen:ur2qly1ini@localhost:5432/eugen")
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse connection config: %v", err)
+		PsqlErr := fmt.Errorf("failed to create connection to PostgreSQL: %v", err)
+		return nil, PsqlErr
 	}
 
 	conn, err := pgx.ConnectConfig(context.Background(), connConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create connection to PostgreSQL: %v", err)
+		PsqlErr := fmt.Errorf("failed to create connection to PostgreSQL: %v", err)
+		return nil, PsqlErr
 	}
 
 	fmt.Println("Connection to PostgreSQL successful")
@@ -27,13 +28,14 @@ func createConn() (*pgx.Conn, error) {
 
 func main() {
 	e := echo.New()
-	str := repository.Greet()
-	e.GET("/", func(c echo.Context) error {
+	str := "Greetings, traveller"
+	e.GET("/bd", func(c echo.Context) error {
 		return c.String(http.StatusOK, str)
 	})
-	e.GET("/bd", func(c echo.Context) error {
+	e.GET("/", func(c echo.Context) error {
 		createConn()
-		return c.String(http.StatusOK, str)
+		repository.get()
+		return c.String(http.StatusOK, "Interract with PostgreSQL")
 	})
 	e.Logger.Fatal(e.Start(":1323"))
 
