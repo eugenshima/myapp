@@ -1,0 +1,13 @@
+version: "3.9"
+services:
+  postgres:
+    image: postgres:13.3
+    environment:
+      POSTGRES_DB: "eugene"
+      POSTGRES_USER: "eugen"
+      POSTGRES_PASSWORD: "ur2qly1ini"
+    volumes:
+      - .:/pgdata:/var/lib/postgresql/data
+      - .:/docker-entrypoint-initdb.d
+    ports:
+      - "5431:5432"
