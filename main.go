@@ -29,19 +29,18 @@ func createConn() (*pgx.Conn, error) {
 
 func main() {
 	e := echo.New()
-	//fmt.Println(rep.repFunc())
-	str := "Greetings, traveller"
+
 	conn, err := createConn()
-	e.GET("/bd", func(c echo.Context) error {
-		return c.String(http.StatusOK, str)
-	})
+
 	e.GET("/getById", func(c echo.Context) error {
 		repository.GetById(conn, err)
 		return c.String(http.StatusOK, "getbyid")
 	})
-	e.POST("/post", func(c echo.Context) error {
+	e.GET("/add", func(c echo.Context) error {
+		repository.CreatePerson(conn, err)
 		return c.String(http.StatusOK, "post request")
 	})
+
 	e.Logger.Fatal(e.Start(":1323"))
 
 }

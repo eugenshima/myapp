@@ -1,4 +1,4 @@
-package repository
+package model
 
 //here will be a model of our entity from database
 import (
@@ -12,11 +12,11 @@ type Entity struct {
 	IsHealthy bool      `db:"ishealthy"`
 }
 
-func NewEntity(name string, age int, isHealthy bool) *Entity {
+/*func NewEntity(name string, age int, isHealthy bool) *Entity {
 	return &Entity{
 		ID:        uuid.New(),
 		Name:      name,
 		Age:       age,
 		IsHealthy: isHealthy,
 	}
-}
+}*/
