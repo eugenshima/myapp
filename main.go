@@ -3,9 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
-	"net/http"
 
-	"github.com/eugenshima/myapp/internal/repository"
+	"github.com/eugenshima/myapp/internal/handlers"
 	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v4"
 )
@@ -31,15 +30,7 @@ func main() {
 	e := echo.New()
 
 	conn, err := createConn()
-
-	e.GET("/getById", func(c echo.Context) error {
-		repository.GetById(conn, err)
-		return c.String(http.StatusOK, "getbyid")
-	})
-	e.GET("/add", func(c echo.Context) error {
-		repository.CreatePerson(conn, err)
-		return c.String(http.StatusOK, "post request")
-	})
+	handlers.HttpHandler(e, conn, err)
 
 	e.Logger.Fatal(e.Start(":1323"))
 
