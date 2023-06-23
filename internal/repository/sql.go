@@ -33,12 +33,9 @@ func createConn() *pgx.Conn {
 }
 
 // Add a person to database table
-func CreatePerson() error {
+func CreatePerson( /*entity model.Entity*/ ) error {
 	var entity model.Entity
 	entity.ID = uuid.New()
-	entity.Name = "eugen"
-	entity.Age = 20
-	entity.IsHealthy = true
 	conn := createConn()
 
 	bd, err := conn.Exec(context.Background(), "INSERT INTO goschema.newtable (id, name, age, ishealthy) VALUES ($1, $2, $3, $4)", entity.ID, entity.Name, entity.Age, entity.IsHealthy)
@@ -59,6 +56,7 @@ func GetByName(Name string) (string, error) {
 	conn := createConn()
 
 	query := `SELECT id, name, age, ishealthy FROM goschema.newtable WHERE name=$1`
+
 	//execute a SQL query on a database
 	err := conn.QueryRow(context.Background(), query, entity.Name).Scan(entity.ID, entity.Name, entity.Age, entity.IsHealthy)
 	if err != nil {
@@ -102,11 +100,12 @@ func GetAll() ([]model.Entity, error) {
 }
 
 //Delete row from table by name
-func Delete(Name string) error {
+func Delete(uuidString string) error {
 	var entity model.Entity
-	entity.Name = Name
+	parsedUUID, err := uuid.Parse(uuidString)
+	entity.ID = parsedUUID
 	conn := createConn()
-	bd, err := conn.Exec(context.Background(), "DELETE FROM goschema.newtable WHERE name=$1", entity.Name)
+	bd, err := conn.Exec(context.Background(), "DELETE FROM goschema.newtable WHERE id=$1", entity.ID)
 	if err != nil {
 		fmt.Println("Error deleting data into table:", err)
 		return err
@@ -116,13 +115,18 @@ func Delete(Name string) error {
 	return nil
 }
 
+//Update information about Person
 func Update(entity model.Entity) error {
 	conn := createConn()
-	bd, err := conn.Exec(context.Background(), "UPDATE goschema.newtable SET name=$1, age=$2, ishealthy=$3", entity.Name, entity.Age, entity.IsHealthy)
+
+	//спросить у егора как в случае uuid эго трекать(было проще когда он был инт)
+
+	bd, err := conn.Exec(context.Background(), "UPDATE goschema.newtable SET name=$1, age=$2, ishealthy=$3 WHERE id=$4", entity.Name, entity.Age, entity.IsHealthy, entity.ID)
 	if err != nil {
 		fmt.Println("Error updating data into table:", err)
 		return err
 	}
+
 	fmt.Println(bd, " <-- result of the request")
 	fmt.Println("Data successfully updated from table yauhenishymanski.newtable")
 	return nil

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"io/ioutil"
 	"net/http"
 
 	"github.com/eugenshima/myapp/internal/repository"
@@ -16,8 +17,17 @@ func HttpHandler(e *echo.Echo) {
 	})
 
 	e.POST("/add", func(c echo.Context) error {
+		// Get object from the context
+		req := c.Request()
+
+		// get request body
+		body, err := ioutil.ReadAll(req.Body)
+		if err != nil {
+			return err
+		}
+		// Call repository function
 		repository.CreatePerson()
-		return c.String(http.StatusOK, "create")
+		return c.JSON(http.StatusOK, body)
 	})
 
 	e.GET("/all", func(c echo.Context) error {
@@ -25,12 +35,12 @@ func HttpHandler(e *echo.Echo) {
 		return c.String(http.StatusOK, "Get Request(GetAll)")
 	})
 
-	e.DELETE("/delete/:name", func(c echo.Context) error {
-		Name := c.Param("name")
-		repository.Delete(Name)
+	e.DELETE("/delete/:id", func(c echo.Context) error {
+		Uuid := c.Param("id")
+		repository.Delete(Uuid)
 		return c.String(http.StatusOK, "Delete Request(delete)")
 	})
-	e.PUT("/update", func(c echo.Context) error {
+	e.PATCH("/update", func(c echo.Context) error {
 		return c.String(http.StatusOK, "Put Request(update)")
 	})
 }
