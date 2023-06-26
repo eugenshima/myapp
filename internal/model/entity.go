@@ -11,12 +11,3 @@ type Entity struct {
 	Age       int       `db:"age"`
 	IsHealthy bool      `db:"ishealthy"`
 }
-
-/*func NewEntity(name string, age int, isHealthy bool) *Entity {
-	return &Entity{
-		ID:        uuid.New(),
-		Name:      name,
-		Age:       age,
-		IsHealthy: isHealthy,
-	}
-}*/
