@@ -5,6 +5,7 @@ import (
 
 	"github.com/eugenshima/myapp/internal/handlers"
 	"github.com/eugenshima/myapp/internal/repository"
+	"github.com/eugenshima/myapp/internal/service"
 	"github.com/labstack/echo/v4"
 )
 
@@ -18,14 +19,16 @@ func NewMain(handler *handlers.Handler) *Main {
 
 func main() {
 	e := echo.New()
-	// Initializing the DATABASE CONNECTOR
+	// Initializing the Database Connector
 	pool, err := repository.NewDatabasePsqlConnection()
 	if err != nil {
 		fmt.Println(err)
 	}
 
 	dbpool := repository.NewPsqlConnection(pool)
-	handlr := handlers.NewHandler(dbpool)
+	service := service.NewService(dbpool)
+	handlr := handlers.NewHandler(service)
+
 	handlr.HttpHandler(e)
 
 	e.Logger.Fatal(e.Start(":1323"))

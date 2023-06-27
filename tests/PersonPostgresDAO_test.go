@@ -16,7 +16,9 @@ func NewTest(DB *repository.PsqlConnection) *Test {
 }
 
 func TestGetAll(t *testing.T) {
+
 	//arrange
+
 	// Connect to PSQL database
 	pool, err := repository.NewDatabasePsqlConnection()
 	if err != nil {
@@ -25,8 +27,12 @@ func TestGetAll(t *testing.T) {
 	dbpool := repository.NewPsqlConnection(pool)
 	handlr := NewTest(dbpool)
 
+	//act
+
 	// Make a database call to retrieve all entities
 	result, err := handlr.DB.GetAll()
+
+	//result
 
 	if err != nil {
 		t.Errorf("Error occurred calling GetAll(): %v", err)
