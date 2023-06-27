@@ -1,8 +1,10 @@
+// Package service provides a set of functions, which include business-logic in it
 package service
 
 import (
 	"github.com/eugenshima/myapp/internal/model"
 	"github.com/eugenshima/myapp/internal/repository"
+	"github.com/labstack/echo/v4"
 )
 
 // Service is a struct that contains a reference to the repository interface
@@ -10,12 +12,12 @@ type Service struct {
 	DB *repository.PsqlConnection
 }
 
-// Constructor for the Service struct
+// NewService is a constructor for the Service struct
 func NewService(DB *repository.PsqlConnection) *Service {
 	return &Service{DB: DB}
 }
 
-// Interface, which contains repository methods
+// PersonService interface, which contains repository methods
 type PersonService interface {
 	GetByName(Name string)
 	GetAll()
@@ -24,43 +26,27 @@ type PersonService interface {
 	Update(uuidString string, entity *model.Entity)
 }
 
-func (db *Service) GetByName(Name string) (*model.Entity, error) {
-	entity, err := db.DB.GetByName(Name)
-	if err != nil {
-		return nil, err
-	}
-	return entity, nil
-
+// GetByName is a service function which interacts with repository level
+func (db *Service) GetByName(c echo.Context, Name string) (*model.Entity, error) {
+	return db.DB.GetByName(c, Name)
 }
 
+// GetAll is a service function which interacts with repository level
 func (db *Service) GetAll() ([]model.Entity, error) {
-	entity, err := db.DB.GetAll()
-	if err != nil {
-		return nil, err
-	}
-	return entity, nil
+	return db.DB.GetAll()
 }
 
+// Delete is a service function which interacts with repository level
 func (db *Service) Delete(uuidString string) error {
-	err := db.DB.Delete(uuidString)
-	if err != nil {
-		return err
-	}
-	return nil
+	return db.DB.Delete(uuidString)
 }
 
+// Insert is a service function which interacts with repository level
 func (db *Service) Insert(entity *model.Entity) error {
-	err := db.DB.Insert(entity)
-	if err != nil {
-		return err
-	}
-	return nil
+	return db.DB.Insert(entity)
 }
 
+// Update is a service function which interacts with repository level
 func (db *Service) Update(uuidString string, entity *model.Entity) error {
-	err := db.DB.Update(uuidString, entity)
-	if err != nil {
-		return err
-	}
-	return nil
+	return db.DB.Update(uuidString, entity)
 }

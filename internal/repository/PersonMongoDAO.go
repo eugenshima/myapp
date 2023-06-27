@@ -1,3 +1,6 @@
+// Package repository provides functions for interacting with a database
+// or other persistent storage system in a web service.
+// It includes functions for creating, reading, updating, and deleting data from the storage system.
 package repository
 
 import (
@@ -9,14 +12,17 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type MongoDbConnection struct {
+// MongoDBConnection is a struct, which contains *mongo.Client variable
+type MongoDBConnection struct {
 	client *mongo.Client
 }
 
-func NewMongoDbConnection(client *mongo.Client) *MongoDbConnection {
-	return &MongoDbConnection{client: client}
+// NewMongoDBConnection func is a constructor of MongoDbConnection struct
+func NewMongoDBConnection(client *mongo.Client) *MongoDBConnection {
+	return &MongoDBConnection{client: client}
 }
 
+// CreateMongoConnect creates a connection to MongoDB server
 func CreateMongoConnect() (*mongo.Client, error) {
 	clientOptions := options.Client().ApplyURI("mongodb://localhost:27017")
 
@@ -33,35 +39,28 @@ func CreateMongoConnect() (*mongo.Client, error) {
 	}
 	fmt.Println("Connected to MongoDB!")
 
-	// // Disconnect from MongoDB
-	// ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	// err = client.Disconnect(ctx)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// fmt.Println("Disconnected from MongoDB!")
-
 	return client, nil
 }
 
-func (db *MongoDbConnection) FindPersons(ctx context.Context) (bson.M, error) {
+// FindPersons executes the "db.person.find()" command
+func (db *MongoDBConnection) FindPersons(ctx context.Context) (bson.M, error) {
 	// Select the database and collection
 	collection := db.client.Database("my_mongo_base").Collection("person")
 
-	// Call the find() function on the collection
+	// Call the find function on the collection
 	cursor, err := collection.Find(ctx, bson.M{})
-
 	if err != nil {
 		return nil, err
 	}
 
 	defer cursor.Close(ctx)
+	if cursor.Close(ctx) != nil {
+		return nil, err
+	}
 
 	var result bson.M
 	// Iterate over the cursor and print the result
 	for cursor.Next(ctx) {
-
 		err := cursor.Decode(&result)
 
 		if err != nil {

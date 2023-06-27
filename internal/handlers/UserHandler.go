@@ -1,3 +1,4 @@
+// Package handlers provides HTTP request handler functions for a web service written in Go
 package handlers
 
 import (
@@ -7,6 +8,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// UserGetAll function receives a GET request to get all users
 func (handler *Handler) UserGetAll(c echo.Context) error {
 	var results []model.User
 

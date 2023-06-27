@@ -1,3 +1,4 @@
+// Package main - entry point to our program
 package main
 
 import (
@@ -10,14 +11,17 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// Main struct
 type Main struct {
 	handler *handlers.Handler
 }
 
+// NewMain constructor function
 func NewMain(handler *handlers.Handler) *Main {
 	return &Main{handler: handler}
 }
 
+// Main - entry point
 func main() {
 	e := echo.New()
 	// Initializing the Database Connector
@@ -34,12 +38,14 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 	}
-	db := repository.NewMongoDbConnection(client)
+	db := repository.NewMongoDBConnection(client)
 	mdb := service.NewMongoService(db)
-	mdb.FindPersons(context.Background())
-
-	handlr.HttpHandler(e)
+	data, err := mdb.FindPersons(context.Background())
+	if err != nil {
+		fmt.Printf("Error in main: %v", err)
+	}
+	fmt.Println(data)
+	handlr.HTTPHandler(e)
 
 	e.Logger.Fatal(e.Start(":1323"))
-
 }

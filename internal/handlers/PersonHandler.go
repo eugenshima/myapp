@@ -10,24 +10,18 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// type Handler struct {
-// 	DB *repository.PsqlConnection
-// }
-
+// Handler struct contains *service.Service variable
 type Handler struct {
 	PersonService *service.Service
 }
 
+// NewHandler function is a constructor for Handler
 func NewHandler(PersonService *service.Service) *Handler {
 	return &Handler{PersonService: PersonService}
 }
 
-// func NewHandler(DB *repository.PsqlConnection) *Handler {
-// 	return &Handler{DB: DB}
-// }
-
-func (handler *Handler) HttpHandler(e *echo.Echo) {
-
+// HTTPHandler routing function
+func (handler *Handler) HTTPHandler(e *echo.Echo) {
 	e.GET("/getByName/:name", handler.GetByName)
 
 	e.GET("/getAll", handler.GetAll)
@@ -39,18 +33,19 @@ func (handler *Handler) HttpHandler(e *echo.Echo) {
 	e.PATCH("/update/:id", handler.Update)
 
 	e.GET("/user/getall", handler.UserGetAll)
-
 }
 
+// GetByName function receives GET request from client
 func (handler *Handler) GetByName(c echo.Context) error {
 	Name := c.Param("name")
-	result, err := handler.PersonService.GetByName(Name)
+	result, err := handler.PersonService.GetByName(c, Name)
 	if err != nil {
 		return c.String(http.StatusNotFound, "Bad")
 	}
 	return c.JSON(http.StatusOK, result)
 }
 
+// GetAll function receives GET request from client
 func (handler *Handler) GetAll(c echo.Context) error {
 	var results []model.Entity
 
@@ -62,12 +57,17 @@ func (handler *Handler) GetAll(c echo.Context) error {
 	return c.JSON(http.StatusOK, results)
 }
 
+// Delete function receives DELETE request from client
 func (handler *Handler) Delete(c echo.Context) error {
 	id := c.Param("id")
-	handler.PersonService.Delete(id)
+	err := handler.PersonService.Delete(id)
+	if err != nil {
+		return err
+	}
 	return c.String(http.StatusOK, "delete request")
 }
 
+// Insert function receives POST request from client
 func (handler *Handler) Insert(c echo.Context) error {
 	req := c.Request()
 
@@ -82,10 +82,14 @@ func (handler *Handler) Insert(c echo.Context) error {
 	if err != nil {
 		return c.String(http.StatusNotFound, "Bad")
 	}
-	handler.PersonService.Insert(entity)
+	err = handler.PersonService.Insert(entity)
+	if err != nil {
+		return err
+	}
 	return c.String(http.StatusOK, "insert request")
 }
 
+// Update function receives PATCH request from client
 func (handler *Handler) Update(c echo.Context) error {
 	id := c.Param("id")
 	req := c.Request()
@@ -100,6 +104,9 @@ func (handler *Handler) Update(c echo.Context) error {
 	if err != nil {
 		return c.String(http.StatusNotFound, "Bad")
 	}
-	handler.PersonService.Update(id, entity)
+	err = handler.PersonService.Update(id, entity)
+	if err != nil {
+		return err
+	}
 	return c.String(http.StatusOK, "update request")
 }
