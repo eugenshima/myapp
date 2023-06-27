@@ -7,20 +7,20 @@ import (
 	"github.com/eugenshima/myapp/internal/model"
 )
 
-func (db *PsqlConnection) GetAllUsers() ([]model.Entity, error) {
-	rows, err := db.pool.Query(context.Background(), "SELECT id, login, password FROM goschema.user")
+func (db *PsqlConnection) GetAllUsers() ([]model.User, error) {
+	rows, err := db.pool.Query(context.Background(), "SELECT id, login, password, role FROM goschema.user")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
 	// Create slice to store data from our SQL request
-	var results []model.Entity
+	var results []model.User
 
 	// go;) through each line
 	for rows.Next() {
-		entity := model.Entity{}
-		err := rows.Scan(&entity.ID, &entity.Name, &entity.Age, &entity.IsHealthy)
+		entity := model.User{}
+		err := rows.Scan(&entity.ID, &entity.Login, &entity.Password, &entity.Role)
 		if err != nil {
 			return nil, err
 		}

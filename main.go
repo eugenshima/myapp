@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/eugenshima/myapp/internal/handlers"
@@ -26,8 +27,16 @@ func main() {
 	}
 
 	dbpool := repository.NewPsqlConnection(pool)
-	service := service.NewService(dbpool)
-	handlr := handlers.NewHandler(service)
+	Psqlservice := service.NewService(dbpool)
+	handlr := handlers.NewHandler(Psqlservice)
+
+	client, err := repository.CreateMongoConnect()
+	if err != nil {
+		fmt.Println(err)
+	}
+	db := repository.NewMongoDbConnection(client)
+	mdb := service.NewMongoService(db)
+	mdb.FindPersons(context.Background())
 
 	handlr.HttpHandler(e)
 

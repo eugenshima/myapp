@@ -6,7 +6,7 @@ type UserService interface {
 	GetAllUsers()
 }
 
-func (db *Service) GetAllUsers() ([]model.Entity, error) {
+func (db *Service) GetAllUsers() ([]model.User, error) {
 	entity, err := db.DB.GetAllUsers()
 	if err != nil {
 		return nil, err

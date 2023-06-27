@@ -1,10 +1,20 @@
 package tests
 
 import (
+	"context"
 	"testing"
 
 	"github.com/eugenshima/myapp/internal/repository"
+	"go.mongodb.org/mongo-driver/bson"
 )
+
+type TestMongo struct {
+	client *repository.MongoDbConnection
+}
+
+func NewTestMongo(client *repository.MongoDbConnection) *TestMongo {
+	return &TestMongo{client: client}
+}
 
 func TestCreateMongoConnect(t *testing.T) {
 	client, err := repository.CreateMongoConnect()
@@ -23,4 +33,34 @@ func TestCreateMongoConnect(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to disconnect from MongoDB: %v", err)
 	}
+}
+
+func TestFindPersons(t *testing.T) {
+	db := repository.MongoDbConnection{} // Create an instance of `MongoDbConnection`
+	db.Connect()                         // Connect to the MongoDB database
+
+	client, err := repository.CreateMongoConnect()
+
+	TestMongo.client.FindPersons()
+
+	collection := db.client.Database("test").Collection("person")
+	_, err = collection.InsertMany(context.Background(), []interface{}{
+		bson.M{"name": "John Doe", "age": 25},
+		bson.M{"name": "Alice Smith", "age": 30},
+	})
+
+	if err != nil {
+		t.Error("Failed to insert test data")
+	}
+
+	// Test the `FindPersons()` function
+	db.FindPersons()
+
+	// Cleanup
+	_, err = collection.DeleteMany(context.Background(), bson.M{})
+	if err != nil {
+		t.Error("Failed to delete test data")
+	}
+
+	db.Disconnect() // Disconnect from the MongoDB database
 }

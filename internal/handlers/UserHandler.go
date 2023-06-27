@@ -8,11 +8,11 @@ import (
 )
 
 func (handler *Handler) UserGetAll(c echo.Context) error {
-	var results []model.Entity
+	var results []model.User
 
 	results, err := handler.PersonService.GetAllUsers()
 	if err != nil {
-		return c.String(http.StatusNotFound, "Bad")
+		return c.String(http.StatusNotFound, "Something bad happened")
 	}
 
 	return c.JSON(http.StatusOK, results)
