@@ -1,10 +1,13 @@
-package tests
+package repository_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
 	"github.com/eugenshima/myapp/internal/repository"
+	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/labstack/echo/v4"
 )
 
 type Test struct {
@@ -15,12 +18,31 @@ func NewTest(DB *repository.PsqlConnection) *Test {
 	return &Test{DB: DB}
 }
 
+// NewDBPsql function provides Connection with PostgreSQL database
+func NewDBPsql() (*pgxpool.Pool, error) {
+	// Initialization a connect configuration for a PostgreSQL using pgx driver
+	config, err := pgxpool.ParseConfig("postgres://eugen:ur2qly1ini@localhost:5432/eugen")
+	if err != nil {
+		return nil, err
+	}
+
+	// Establishing a new connection to a PostgreSQL database using the pgx driver
+	pool, err := pgxpool.ConnectConfig(context.Background(), config)
+	if err != nil {
+		return nil, err
+	}
+	// Output to console
+	fmt.Println("Connection to PostgreSQL successful")
+
+	return pool, nil
+}
+
 func TestGetAll(t *testing.T) {
 
 	//arrange
 
 	// Connect to PSQL database
-	pool, err := repository.NewDatabasePsqlConnection()
+	pool, err := NewDBPsql()
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -30,7 +52,7 @@ func TestGetAll(t *testing.T) {
 	//act
 
 	// Make a database call to retrieve all entities
-	result, err := handlr.DB.GetAll()
+	result, err := handlr.DB.GetAll(echo.New().AcquireContext())
 
 	//result
 
