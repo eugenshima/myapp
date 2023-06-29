@@ -4,12 +4,12 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/eugenshima/myapp/internal/model"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/labstack/echo/v4"
 )
 
 // PsqlConnection is a struct, which contains Pool variable
@@ -22,15 +22,14 @@ func NewPsqlConnection(pool *pgxpool.Pool) *PsqlConnection {
 	return &PsqlConnection{pool: pool}
 }
 
-// GetByName function executes SQL request to select all rows, where name=Name
-func (db *PsqlConnection) GetByName(c echo.Context, Name string) (*model.Person, error) {
+// GetByName function executes SQL request to select all rows, where id=Id
+func (db *PsqlConnection) GetById(ctx context.Context, Id uuid.UUID) (*model.Person, error) {
 	var entity model.Person
-	entity.Name = Name
 
-	query := `SELECT id, name, age, ishealthy FROM goschema.person WHERE name=$1`
+	query := `SELECT id, name, age, ishealthy FROM goschema.person WHERE id=$1`
 
 	// Execute a SQL query on a database
-	err := db.pool.QueryRow(c.Request().Context(), query, &entity.Name).Scan(&entity.ID, &entity.Name, &entity.Age, &entity.IsHealthy)
+	err := db.pool.QueryRow(ctx, query, &Id).Scan(&entity.ID, &entity.Name, &entity.Age, &entity.IsHealthy)
 	if err != nil {
 		return nil, fmt.Errorf("error in PersonP.go GetByname() QueryRow(): %v", err) // Returning error message
 	}
@@ -38,8 +37,8 @@ func (db *PsqlConnection) GetByName(c echo.Context, Name string) (*model.Person,
 }
 
 // GetAll function executes SQL request to select all rows from Database
-func (db *PsqlConnection) GetAll(c echo.Context) ([]model.Person, error) {
-	rows, err := db.pool.Query(c.Request().Context(), "SELECT id, name, age, ishealthy FROM goschema.person")
+func (db *PsqlConnection) GetAll(ctx context.Context) ([]model.Person, error) {
+	rows, err := db.pool.Query(ctx, "SELECT id, name, age, ishealthy FROM goschema.person")
 	if err != nil {
 		return nil, fmt.Errorf("error in PersonP.go GetAll() Query(): %v", err) // Returning error message
 	}
@@ -61,15 +60,8 @@ func (db *PsqlConnection) GetAll(c echo.Context) ([]model.Person, error) {
 }
 
 // Delete function executes SQL reauest to delete row with certain uuid
-func (db *PsqlConnection) Delete(c echo.Context, uuidString string) error {
-	var entity model.Person
-	parsedUUID, err := uuid.Parse(uuidString)
-	if err != nil {
-		return fmt.Errorf("error parsing to uuid in Delete(): %v", err) // Returning error message
-	}
-	entity.ID = parsedUUID
-
-	bd, err := db.pool.Exec(c.Request().Context(), "DELETE FROM goschema.person WHERE id=$1", &entity.ID)
+func (db *PsqlConnection) Delete(ctx context.Context, uuidString uuid.UUID) error {
+	bd, err := db.pool.Exec(ctx, "DELETE FROM goschema.person WHERE id=$1", &uuidString)
 	if err != nil && !bd.Delete() {
 		return fmt.Errorf("error deleting data from table: %v", err) // Returning error message
 	}
@@ -77,10 +69,10 @@ func (db *PsqlConnection) Delete(c echo.Context, uuidString string) error {
 }
 
 // Create function executes SQL request to insert person into database
-func (db *PsqlConnection) Create(c echo.Context, entity *model.Person) error {
+func (db *PsqlConnection) Create(ctx context.Context, entity *model.Person) error {
 	entity.ID = uuid.New()
 
-	bd, err := db.pool.Exec(c.Request().Context(),
+	bd, err := db.pool.Exec(ctx,
 		`INSERT INTO goschema.person (id, name, age, ishealthy) 
 	VALUES($1,$2,$3,$4)`,
 		&entity.ID, &entity.Name, &entity.Age, &entity.IsHealthy)
@@ -92,13 +84,8 @@ func (db *PsqlConnection) Create(c echo.Context, entity *model.Person) error {
 }
 
 // Update function executes SQL request to update person data in database
-func (db *PsqlConnection) Update(c echo.Context, uuidString string, entity *model.Person) error {
-	parsedUUID, err := uuid.Parse(uuidString)
-	if err != nil {
-		return fmt.Errorf("error parsing to uuid in Delete(): %v", err) // Returning error message
-	}
-	entity.ID = parsedUUID
-	bd, err := db.pool.Exec(c.Request().Context(), "UPDATE goschema.person SET name=$1, age=$2, ishealthy=$3 WHERE id=$4", &entity.Name, &entity.Age, &entity.IsHealthy, &entity.ID)
+func (db *PsqlConnection) Update(ctx context.Context, uuidString uuid.UUID, entity *model.Person) error {
+	bd, err := db.pool.Exec(ctx, "UPDATE goschema.person SET name=$1, age=$2, ishealthy=$3 WHERE id=$4", &entity.Name, &entity.Age, &entity.IsHealthy, &entity.ID)
 	if err != nil && !bd.Update() {
 		return fmt.Errorf("error updating data in table: %v", err) // Returning error message
 	}

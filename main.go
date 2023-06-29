@@ -79,31 +79,33 @@ func main() {
 	ch := 2
 	//TODO: switch case between databases(mongo or postgreSQL)
 
+	//Initializing the Database Connector (MongoDB)
+	client, err := NewMongo()
+	if err != nil {
+		fmt.Println(err)
+	}
+	// Initializing the Database Connector (PostgreSQL)
+	pool, err := NewDBPsql()
+	if err != nil {
+		fmt.Println(err)
+	}
 	var handlr *handlers.PersonHandlerImpl
 	switch ch {
 	case 2:
-		//Initializing the Database Connector (MongoDB)
-		client, err := NewMongo()
-		if err != nil {
-			fmt.Println(err)
-		}
+
 		//TODO: mongoDB
 		rps := repository.NewMongoDBConnection(client)
 		srv := service.NewPersonService(rps)
 		handlr = handlers.NewPersonHandler(srv)
 
 	default:
-		// Initializing the Database Connector (PostgreSQL)
-		pool, err := NewDBPsql()
-		if err != nil {
-			fmt.Println(err)
-		}
+
 		rps := repository.NewPsqlConnection(pool)
 		srv := service.NewPersonService(rps)
 		handlr = handlers.NewPersonHandler(srv)
 	}
 
-	e.GET("/person/getByName/:name", handlr.GetByName)
+	e.GET("/person/getById/:id", handlr.GetById)
 	e.GET("/person/getAll", handlr.GetAll)
 	e.DELETE("/person/delete/:id", handlr.Delete)
 	e.POST("/person/insert", handlr.Create)

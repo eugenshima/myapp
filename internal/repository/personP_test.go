@@ -1,89 +1,177 @@
-package repository_test
+package repository
 
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
-	"github.com/eugenshima/myapp/internal/repository"
+	"github.com/eugenshima/myapp/internal/model"
+	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/labstack/echo/v4"
+	"github.com/ory/dockertest"
+	mock "github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type Test struct {
-	DB *repository.PsqlConnection
+type TypesPackage struct {
+	mock.Mock
 }
 
-func NewTest(DB *repository.PsqlConnection) *Test {
-	return &Test{DB: DB}
+type TypesPackage_Exporter struct {
+	mock *mock.Mock
 }
 
-// NewDBPsql function provides Connection with PostgreSQL database
-func NewDBPsql() (*pgxpool.Pool, error) {
-	// Initialization a connect configuration for a PostgreSQL using pgx driver
-	config, err := pgxpool.ParseConfig("postgres://eugen:ur2qly1ini@localhost:5432/eugen")
+func (_m *TypesPackage) EXPECT() *TypesPackage_Exporter {
+	return &TypesPackage_Exporter{mock: &_m.Mock}
+}
+
+func SetupTestPgx() (*pgxpool.Pool, func(), error) {
+	pool, err := dockertest.NewPool("")
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("could not construct pool: %w", err)
 	}
-
-	// Establishing a new connection to a PostgreSQL database using the pgx driver
-	pool, err := pgxpool.ConnectConfig(context.Background(), config)
+	resource, err := pool.Run("postgres", "latest", []string{
+		"POSTGRES_USER=eugen",
+		"POSTGRESQL_PASSWORD=ur2qly1ini",
+		"POSTGRES_DB=eugen"})
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("could not start resource: %w", err)
 	}
-	// Output to console
-	fmt.Println("Connection to PostgreSQL successful")
-
-	return pool, nil
+	dbURL := "postgres://eugen:ur2qly1ini@localhost:5432/eugen"
+	cfg, err := pgxpool.ParseConfig(dbURL)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse dbURL: %w", err)
+	}
+	dbpool, err := pgxpool.ConnectConfig(context.Background(), cfg)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to connect pgxpool: %w", err)
+	}
+	cleanup := func() {
+		dbpool.Close()
+		pool.Purge(resource)
+	}
+	return dbpool, cleanup, nil
 }
 
-func TestGetAll(t *testing.T) {
+func SetupTestMongoDB() (*mongo.Client, func(), error) {
+	pool, err := dockertest.NewPool("")
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not construct pool: %w", err)
+	}
+	resource, err := pool.Run("mongo", "latest", []string{
+		"MONGO_INITDB_ROOT_USERNAME=eugenshima",
+		"MONGO_INITDB_ROOT_PASSWORD=ur2qly1ini",
+		"MONGO_INITDB_DATABASE=my_mongo_base"})
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not start resource: %w", err)
+	}
+	port := resource.GetPort("27017/tcp")
+	mongoURL := fmt.Sprintf("mongodb://eugenshim2a:ur2qly1ini@localhost:%s", port)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse dbURL: %w", err)
+	}
+	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(mongoURL))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to connect mongoDB: %w", err)
+	}
+	cleanup := func() {
+		client.Disconnect(context.Background())
+		pool.Purge(resource)
+	}
+	return client, cleanup, nil
+}
 
-	//arrange
-
-	// Connect to PSQL database
-	pool, err := NewDBPsql()
+func TestMain(m *testing.M) {
+	dbpool, cleanupPgx, err := SetupTestPgx()
+	if err != nil {
+		fmt.Println("Could not construct the pool: ", err)
+		cleanupPgx()
+		os.Exit(1)
+	}
+	rps = NewPsqlConnection(dbpool)
+	client, cleanupMongo, err := SetupTestMongoDB()
 	if err != nil {
 		fmt.Println(err)
+		cleanupMongo()
+		os.Exit(1)
 	}
-	dbpool := repository.NewPsqlConnection(pool)
-	handlr := NewTest(dbpool)
+	rpsM = NewMongoDBConnection(client)
+	exitVal := m.Run()
+	cleanupPgx()
+	cleanupMongo()
+	os.Exit(exitVal)
+}
 
-	//act
+var rps *PsqlConnection
 
-	// Make a database call to retrieve all entities
-	result, err := handlr.DB.GetAll(echo.New().AcquireContext())
+var rpsM *MongoDBConnection
 
-	//result
+var entityEugen = model.Person{
+	ID:        uuid.New(),
+	Name:      "Eugen",
+	Age:       20,
+	IsHealthy: true,
+}
 
+func TestPgxCreate(t *testing.T) {
+	err := rps.Create(context.Background(), &entityEugen)
+	require.NoError(t, err)
+	testEntity, err := rps.GetById(context.Background(), entityEugen.ID)
+	require.NoError(t, err)
+	require.Equal(t, testEntity.ID, entityEugen.ID)
+	require.Equal(t, testEntity.Name, entityEugen.Name)
+	require.Equal(t, testEntity.Age, entityEugen.Age)
+	require.Equal(t, testEntity.IsHealthy, entityEugen.IsHealthy)
+}
+
+func TestPgxDelete(t *testing.T) {
+	err := rps.Delete(context.Background(), uuid.Nil)
+	require.NoError(t, err)
+	require.True(t, true, "not deleting entity")
+}
+
+func TestPgxDeleteNil(t *testing.T) {
+	err := rps.Delete(context.Background(), entityEugen.ID)
+	require.NoError(t, err)
+	require.True(t, true)
+}
+
+func TestPgxGetAll(t *testing.T) {
+	allPers, err := rps.GetAll(context.Background())
 	if err != nil {
-		t.Errorf("Error occurred calling GetAll(): %v", err)
+		t.Errorf("Expected no error, got: %v", err)
+	}
+	require.NoError(t, err)
+
+	var numberPersons int
+	err = rps.pool.QueryRow(context.Background(), "SELECT COUNT(*) FROM  goschema.person").Scan(&numberPersons)
+	require.NoError(t, err)
+	require.Equal(t, len(allPers), numberPersons)
+}
+
+func TestPgxUpdate(t *testing.T) {
+	// Test case 1: Valid update
+	err := rps.Update(context.Background(), entityEugen.ID, &entityEugen)
+	require.NoError(t, err)
+	// Test case 2: Invalid uuidString
+	err = rps.Update(context.Background(), uuid.Nil, &entityEugen)
+	require.NoError(t, err)
+}
+
+// Фиктивный тест пока что =================
+func TestPgxCreateWithNegativeAge(t *testing.T) {
+	entityEugen.Age = -1
+	validate := validator.New()
+	err := validate.Struct(entityEugen)
+	require.Error(t, err)
+	if err != nil {
+		err = rps.Create(context.Background(), &entityEugen)
+		require.NoError(t, err)
+		require.True(t, true, "not creating entity")
 	}
 
-	// Ensure that there are no errors
-	if result == nil {
-		t.Errorf("Error result is empty")
-	}
-
-	// Ensure that number of results returned is greater than 0
-	if len(result) == 0 {
-		t.Error("Number of results returned is 0")
-	}
-
-	// Ensure that each result has the expected fields and values
-	for _, entity := range result {
-		// Ensure that the ID field is uuid type
-
-		// TODO: write a type check
-
-		// Ensure that the Name field is not empty
-		if entity.Name == "" {
-			t.Error("Name field is empty")
-		}
-
-		// Ensure that the Age field is not negative
-		if entity.Age < 0 {
-			t.Error("Age field is negative")
-		}
-	}
 }

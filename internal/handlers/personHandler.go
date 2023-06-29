@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/eugenshima/myapp/internal/model"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -21,18 +22,26 @@ func NewPersonHandler(srv PersonService) *PersonHandlerImpl {
 }
 
 type PersonService interface {
-	GetByName(c echo.Context, Name string) (*model.Person, error)
+	GetById(c echo.Context, id uuid.UUID) (*model.Person, error)
 	GetAll(c echo.Context) ([]model.Person, error)
-	Delete(c echo.Context, uuidString string) error
+	Delete(c echo.Context, uuidString uuid.UUID) error
 	Create(c echo.Context, entity *model.Person) error
-	Update(c echo.Context, uuidString string, entity *model.Person) error
+	Update(c echo.Context, uuidString uuid.UUID, entity *model.Person) error
 }
 
-// GetByName function receives GET request from client
-func (handler *PersonHandlerImpl) GetByName(c echo.Context) error {
-	Name := c.Param("name")
-
-	result, err := handler.srv.GetByName(c, Name)
+// GetById function receives GET request from client
+func (handler *PersonHandlerImpl) GetById(c echo.Context) error {
+	Id := c.Param("id")
+	var entity model.Person
+	var err error
+	entity.ID, err = uuid.Parse(Id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	result, err := handler.srv.GetById(c, entity.ID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
 	if err != nil {
 		str := fmt.Sprintf("Error in handler: %v", err)
 		return c.String(http.StatusNotFound, str)
@@ -42,23 +51,27 @@ func (handler *PersonHandlerImpl) GetByName(c echo.Context) error {
 
 // GetAll function receives GET request from client
 func (handler *PersonHandlerImpl) GetAll(c echo.Context) error {
-	var results []model.Person
-
 	results, err := handler.srv.GetAll(c)
 	if err != nil {
 		str := fmt.Sprintf("Error in handler: %v", err)
 		return c.String(http.StatusNotFound, str)
 	}
-
 	return c.JSON(http.StatusOK, results)
 }
 
 // Delete function receives DELETE request from client
 func (handler *PersonHandlerImpl) Delete(c echo.Context) error {
 	id := c.Param("id")
-	err := handler.srv.Delete(c, id)
+	var entity model.Person
+	var err error
+	entity.ID, err = uuid.Parse(id)
 	if err != nil {
-		return err
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	err = handler.srv.Delete(c, entity.ID)
+	if err != nil {
+		str := fmt.Sprintf("Error in handler: %v", err)
+		return c.String(http.StatusNotFound, str)
 	}
 	return c.String(http.StatusOK, "delete request")
 }
@@ -76,11 +89,14 @@ func (handler *PersonHandlerImpl) Create(c echo.Context) error {
 	var entity *model.Person
 	err = json.Unmarshal(body, &entity)
 	if err != nil {
-		return c.String(http.StatusNotFound, "Bad")
+		str := fmt.Sprintf("Error in handler: %v", err)
+		return c.String(http.StatusNotFound, str)
 	}
+	entity.ID = uuid.New()
 	err = handler.srv.Create(c, entity)
 	if err != nil {
-		return err
+		str := fmt.Sprintf("Error in handler: %v", err)
+		return c.String(http.StatusNotFound, str)
 	}
 	return c.String(http.StatusOK, "insert request")
 }
@@ -95,12 +111,17 @@ func (handler *PersonHandlerImpl) Update(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	var entity *model.Person
+	var entity model.Person
+	entity.ID, err = uuid.Parse(id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
 	err = json.Unmarshal(body, &entity)
 	if err != nil {
 		return c.String(http.StatusNotFound, "Bad")
 	}
-	err = handler.srv.Update(c, id, entity)
+
+	err = handler.srv.Update(c, entity.ID, &entity)
 	if err != nil {
 		return err
 	}

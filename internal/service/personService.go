@@ -2,7 +2,10 @@
 package service
 
 import (
+	"context"
+
 	"github.com/eugenshima/myapp/internal/model"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -18,34 +21,34 @@ func NewPersonService(rps PersonRepositoryPsql) *PersonServiceImpl {
 
 // PersonService interface, which contains repository methods
 type PersonRepositoryPsql interface {
-	GetByName(c echo.Context, Name string) (*model.Person, error)
-	GetAll(c echo.Context) ([]model.Person, error)
-	Delete(c echo.Context, uuidString string) error
-	Create(c echo.Context, entity *model.Person) error
-	Update(c echo.Context, uuidString string, entity *model.Person) error
+	GetById(ctx context.Context, id uuid.UUID) (*model.Person, error)
+	GetAll(ctx context.Context) ([]model.Person, error)
+	Delete(ctx context.Context, uuidString uuid.UUID) error
+	Create(ctx context.Context, entity *model.Person) error
+	Update(ctx context.Context, uuidString uuid.UUID, entity *model.Person) error
 }
 
 // GetByName is a service function which interacts with PostgreSQL in repository level
-func (db *PersonServiceImpl) GetByName(c echo.Context, Name string) (*model.Person, error) {
-	return db.rps.GetByName(c, Name)
+func (db *PersonServiceImpl) GetById(c echo.Context, id uuid.UUID) (*model.Person, error) {
+	return db.rps.GetById(c.Request().Context(), id)
 }
 
 // GetAll is a service function which interacts with repository level
 func (db *PersonServiceImpl) GetAll(c echo.Context) ([]model.Person, error) {
-	return db.rps.GetAll(c)
+	return db.rps.GetAll(c.Request().Context())
 }
 
 // Delete is a service function which interacts with repository level
-func (db *PersonServiceImpl) Delete(c echo.Context, uuidString string) error {
-	return db.rps.Delete(c, uuidString)
+func (db *PersonServiceImpl) Delete(c echo.Context, uuidString uuid.UUID) error {
+	return db.rps.Delete(c.Request().Context(), uuidString)
 }
 
 // Create is a service function which interacts with repository level
 func (db *PersonServiceImpl) Create(c echo.Context, entity *model.Person) error {
-	return db.rps.Create(c, entity)
+	return db.rps.Create(c.Request().Context(), entity)
 }
 
 // Update is a service function which interacts with repository level
-func (db *PersonServiceImpl) Update(c echo.Context, uuidString string, entity *model.Person) error {
-	return db.rps.Update(c, uuidString, entity)
+func (db *PersonServiceImpl) Update(c echo.Context, uuidString uuid.UUID, entity *model.Person) error {
+	return db.rps.Update(c.Request().Context(), uuidString, entity)
 }

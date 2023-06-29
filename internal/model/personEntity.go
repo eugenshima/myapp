@@ -5,10 +5,10 @@ import (
 	"github.com/google/uuid"
 )
 
-// Person for person entity in database
+// Person struct for person entity in database
 type Person struct {
-	ID        uuid.UUID `db:"id" bson:"_id"`
+	ID        uuid.UUID `db:"id" bson:"_id" `
 	Name      string    `db:"name" bson:"name"`
-	Age       int       `db:"age" bson:"age"`
+	Age       int       `db:"age" bson:"age" validate:"gte=0"`
 	IsHealthy bool      `db:"ishealthy" bson:"ishealthy"`
 }
