@@ -3,6 +3,7 @@ package config
 
 // Config struct
 type Config struct {
-	HTTPAddr string `default:"1323"`
-	DBAddr   string `default:"postgres://eugen:ur2qly1ini@localhost:5432/eugen"`
+	//HTTPAddr    string `env:"HTTP_PORT"`
+	PgxDBAddr   string `env:"PGXCONN" envDefault:"postgres://eugen:ur2qly1ini@localhost:5432/eugen"`
+	MongoDBADDR string `env:"MONGODBCONN" envDefault:"mongodb://localhost:27017"`
 }

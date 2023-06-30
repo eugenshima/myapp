@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/caarlos0/env/v9"
+	"github.com/eugenshima/myapp/internal/config"
 	"github.com/eugenshima/myapp/internal/handlers"
 	"github.com/eugenshima/myapp/internal/repository"
 	"github.com/eugenshima/myapp/internal/service"
@@ -15,8 +17,9 @@ import (
 )
 
 // NewMongo creates a connection to MongoDB server
-func NewMongo() (*mongo.Client, error) {
-	clientOptions := options.Client().ApplyURI("mongodb://localhost:27017")
+func NewMongo(env string) (*mongo.Client, error) {
+
+	clientOptions := options.Client().ApplyURI(env)
 
 	// Connect to MongoDB
 	client, err := mongo.Connect(context.Background(), clientOptions)
@@ -35,9 +38,9 @@ func NewMongo() (*mongo.Client, error) {
 }
 
 // NewDBPsql function provides Connection with PostgreSQL database
-func NewDBPsql() (*pgxpool.Pool, error) {
+func NewDBPsql(env string) (*pgxpool.Pool, error) {
 	// Initialization a connect configuration for a PostgreSQL using pgx driver
-	config, err := pgxpool.ParseConfig("postgres://eugen:ur2qly1ini@localhost:5432/eugen")
+	config, err := pgxpool.ParseConfig(env)
 	if err != nil {
 		return nil, fmt.Errorf("error connection to PostgreSQL: %v", err)
 	}
@@ -57,15 +60,26 @@ func NewDBPsql() (*pgxpool.Pool, error) {
 func main() {
 	e := echo.New()
 
+	cfg := config.Config{}
+
+	// Используйте env.Parse() для разбора существующих переменных окружения
+	err := env.Parse(&cfg)
+	if err != nil {
+		fmt.Println("Ошибка при разборе переменных окружения:", err)
+		return
+	}
+
+	// Доступ к системной переменной окружения
+
 	ch := 1
 
 	// Initializing the Database Connector (MongoDB)
-	client, err := NewMongo()
+	client, err := NewMongo(cfg.MongoDBADDR)
 	if err != nil {
 		fmt.Printf("Error creating database connection with PostgreSQL: %v", err)
 	}
 	// Initializing the Database Connector (PostgreSQL)
-	pool, err := NewDBPsql()
+	pool, err := NewDBPsql(cfg.PgxDBAddr)
 	if err != nil {
 		fmt.Printf("Error creating database connection with PostgreSQL: %v", err)
 	}

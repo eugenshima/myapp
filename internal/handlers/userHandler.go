@@ -10,6 +10,7 @@ import (
 	"github.com/eugenshima/myapp/internal/model"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/sirupsen/logrus"
 	//"github.com/sirupsen/logrus"
 )
 
@@ -32,6 +33,7 @@ type UserService interface {
 	GetAll(c echo.Context) ([]*model.User, error)
 }
 
+// UserHandlerImpl represents
 type signInInput struct {
 	Login    string `db:"login"`
 	Password string `db:"password"`
@@ -50,12 +52,14 @@ func (handler *UserHandlerImpl) Login(c echo.Context) error {
 	var input signInInput
 	err = json.Unmarshal(body, &input)
 	if err != nil {
-		str := fmt.Sprintf("Error in handler: %v", err)
+		logrus.Errorf("Error unmarshalling...   %v", err)
+		str := fmt.Sprintf("Error in userHandler: %v", err)
 		return c.String(http.StatusNotFound, str)
 	}
 
 	token, err := handler.srv.GenerateToken(c, input.Login, input.Password)
 	if err != nil {
+		logrus.Errorf("error Generating JWT token %v", err)
 		str := fmt.Sprintf("Error in userHandler: %v", err)
 		return c.String(http.StatusNotFound, str)
 	}
@@ -75,12 +79,14 @@ func (handler *UserHandlerImpl) Signup(c echo.Context) error {
 	var entity *model.User
 	err = json.Unmarshal(body, &entity)
 	if err != nil {
-		str := fmt.Sprintf("Error in handler: %v", err)
+		logrus.Errorf("error Unmarshalling...    %v", err)
+		str := fmt.Sprintf("error in handler: %v", err)
 		return c.String(http.StatusNotFound, str)
 	}
 	entity.ID = uuid.New()
 	err = handler.srv.Signup(c, entity)
 	if err != nil {
+		logrus.Errorf("error calling Signup method %v", err)
 		str := fmt.Sprintf("Error in userHandler: %v", err)
 		return c.String(http.StatusNotFound, str)
 	}
