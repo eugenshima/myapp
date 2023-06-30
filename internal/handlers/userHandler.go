@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/eugenshima/myapp/internal/model"
+	"github.com/go-playground/validator"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
@@ -84,6 +85,12 @@ func (handler *UserHandlerImpl) Signup(c echo.Context) error {
 		return c.String(http.StatusNotFound, str)
 	}
 	entity.ID = uuid.New()
+	validate := validator.New()
+	if err := validate.Struct(entity); err != nil {
+		logrus.Errorf("error in handler: %v", err)
+		str := fmt.Sprintf("Error in handler: %v", err)
+		return c.String(http.StatusNotFound, str)
+	}
 	err = handler.srv.Signup(c, entity)
 	if err != nil {
 		logrus.Errorf("error calling Signup method %v", err)

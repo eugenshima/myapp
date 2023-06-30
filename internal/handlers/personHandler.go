@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/eugenshima/myapp/internal/model"
+	"github.com/go-playground/validator"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
@@ -55,6 +56,7 @@ func (handler *PersonHandlerImpl) GetByID(c echo.Context) error {
 
 // GetAll function receives GET request from client
 func (handler *PersonHandlerImpl) GetAll(c echo.Context) error {
+
 	results, err := handler.srv.GetAll(c)
 	if err != nil {
 		logrus.Errorf("Error in handler: %v", err)
@@ -103,6 +105,13 @@ func (handler *PersonHandlerImpl) Create(c echo.Context) error {
 		return c.String(http.StatusNotFound, str)
 	}
 	entity.ID = uuid.New()
+
+	validate := validator.New()
+	if err := validate.Struct(entity); err != nil {
+		logrus.Errorf("error in handler: %v", err)
+		str := fmt.Sprintf("Error in handler: %v", err)
+		return c.String(http.StatusNotFound, str)
+	}
 	err = handler.srv.Create(c, entity)
 	if err != nil {
 		logrus.Errorf("Error in handler: %v", err)
@@ -132,7 +141,12 @@ func (handler *PersonHandlerImpl) Update(c echo.Context) error {
 		logrus.Errorf("Error in handler: %v", err)
 		return c.String(http.StatusNotFound, "error unmarshalling request body")
 	}
-
+	validate := validator.New()
+	if err := validate.Struct(entity); err != nil {
+		logrus.Errorf("error in handler: %v", err)
+		str := fmt.Sprintf("Error in handler: %v", err)
+		return c.String(http.StatusNotFound, str)
+	}
 	err = handler.srv.Update(c, entity.ID, &entity)
 	if err != nil {
 		logrus.Errorf("Error in handler: %v", err)

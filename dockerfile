@@ -29,3 +29,6 @@ COPY --from=compiler ./app/golang-project ./binary
 # Specify the initial command that should be executed
 ENTRYPOINT [ "./binary" ]
 
+# To build the Image of our golang project you need to input the command:
+# docker build --go-web 
+

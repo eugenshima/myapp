@@ -62,6 +62,7 @@ func main() {
 
 	cfg := config.Config{}
 
+	//validate := validator.New()
 	// Используйте env.Parse() для разбора существующих переменных окружения
 	err := env.Parse(&cfg)
 	if err != nil {
@@ -117,5 +118,5 @@ func main() {
 	e.POST("/user/signup", uhandlr.Signup)
 	e.GET("/user/getAll", uhandlr.GetAll)
 
-	e.Logger.Fatal(e.Start(":1323"))
+	e.Logger.Fatal(e.Start(cfg.HTTPAddr))
 }
