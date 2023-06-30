@@ -5,29 +5,59 @@ package repository
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/eugenshima/myapp/internal/model"
+	"github.com/jackc/pgx/v4/pgxpool"
 )
 
-// GetAllUsers function executes a query, which select all rows from user table
-func (db *PsqlConnection) GetAllUsers() ([]model.User, error) {
-	rows, err := db.pool.Query(context.Background(), "SELECT id, login, password, role FROM goschema.user")
+// UserPsqlConnection struct represents a connection to a database
+type UserPsqlConnection struct {
+	pool *pgxpool.Pool
+}
+
+// NewPsqlConnection constructor for PsqlConnection
+func NewUserPsqlConnection(pool *pgxpool.Pool) *UserPsqlConnection {
+	return &UserPsqlConnection{pool: pool}
+}
+
+// Login function executes a query, which select all rows from user table
+func (db *UserPsqlConnection) GetUser(ctx context.Context, login, password string) (*model.User, error) {
+	fmt.Println(password)
+	var user model.User
+	err := db.pool.QueryRow(ctx, "SELECT id FROM goschema.user WHERE login = $1 AND password = $2", login, password).Scan(&user.ID)
+	if err != nil {
+		return nil, fmt.Errorf("error executing query: %v", err)
+	}
+	return &user, nil
+}
+
+// signup function executes a query, which insert a user to user table
+func (db *UserPsqlConnection) Signup(ctx context.Context, entity *model.User) error {
+	bd, err := db.pool.Exec(ctx,
+		`INSERT INTO goschema.user (id, login, password, email) 
+		 values ($1, $2, $3, $4)`,
+		entity.ID, entity.Login, entity.Password, entity.Email)
+	if err != nil && !bd.Insert() {
+		return fmt.Errorf("error inserting user: %v", err)
+	}
+	return nil
+}
+
+func (db *UserPsqlConnection) GetAll(ctx context.Context) ([]*model.User, error) {
+	rows, err := db.pool.Query(ctx, `SELECT id, login, password, email FROM goschema.user`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-
-	// Create slice to store data from our SQL request
-	var results []model.User
-
-	// go;) through each line
+	var users []*model.User
 	for rows.Next() {
-		entity := model.User{}
-		err := rows.Scan(&entity.ID, &entity.Login, &entity.Password, &entity.Role)
+		var user model.User
+		err := rows.Scan(&user.ID, &user.Login, &user.Password, &user.Email)
 		if err != nil {
 			return nil, err
 		}
-		results = append(results, entity)
+		users = append(users, &user)
 	}
-	return results, rows.Err()
+	return users, nil
 }

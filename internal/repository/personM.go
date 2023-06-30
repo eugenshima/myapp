@@ -54,11 +54,12 @@ func (db *MongoDBConnection) Create(ctx context.Context, entity *model.Person) e
 		return fmt.Errorf("InsertOne error: %w", err)
 	}
 	return nil
-
 }
-func (db *MongoDBConnection) GetById(ctx context.Context, Id uuid.UUID) (*model.Person, error) {
+
+// GetByID function executes "db.person.FindOne()" command
+func (db *MongoDBConnection) GetByID(ctx context.Context, ID uuid.UUID) (*model.Person, error) {
 	collection := db.client.Database("my_mongo_base").Collection("person")
-	filter := bson.M{"_id": Id}
+	filter := bson.M{"_id": ID}
 	var entity model.Person
 	err := collection.FindOne(ctx, filter).Decode(&entity)
 
@@ -69,6 +70,7 @@ func (db *MongoDBConnection) GetById(ctx context.Context, Id uuid.UUID) (*model.
 	return &entity, nil
 }
 
+// GetAll function executes "db.person.FindOne()" command
 func (db *MongoDBConnection) GetAll(ctx context.Context) ([]model.Person, error) {
 	fmt.Println("MongoDB")
 	coll := db.client.Database("my_mongo_base").Collection("person")

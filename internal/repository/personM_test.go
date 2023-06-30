@@ -1,87 +1,68 @@
-package repository_test
+package repository
 
-// // MongoDBConnection is a struct, which contains *mongo.Client variable
-// type MongoDBConnection struct {
-// 	person *mongo.Client
-// }
+import (
+	"context"
+	"testing"
 
-// // NewMongoDBConnection func is a constructor of MongoDbConnection struct
-// func NewMongoDBConnection(person *mongo.Client) *MongoDBConnection {
-// 	return &MongoDBConnection{person: person}
-// }
+	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+)
 
-// type TestMongo struct {
-// 	client *MongoDBConnection
-// }
+func TestMongoCreate(t *testing.T) {
+	err := rpsM.Create(context.Background(), &entityEugen)
+	require.NoError(t, err)
+	testEntity, err := rpsM.GetByID(context.Background(), entityEugen.ID)
+	require.NoError(t, err)
+	require.Equal(t, testEntity.ID, entityEugen.ID)
+	require.Equal(t, testEntity.Name, entityEugen.Name)
+	require.Equal(t, testEntity.Age, entityEugen.Age)
+	require.Equal(t, testEntity.IsHealthy, entityEugen.IsHealthy)
+}
 
-// func NewTestMongo(client *MongoDBConnection) *TestMongo {
-// 	return &TestMongo{client: client}
-// }
+func TestMongoDelete(t *testing.T) {
+	err := rpsM.Delete(context.Background(), uuid.Nil)
+	require.NoError(t, err)
+	require.True(t, true, "not deleting entity")
+}
 
-// // NewMongo creates a connection to MongoDB server
-// func NewMongo() (*mongo.Client, error) {
-// 	clientOptions := options.Client().ApplyURI("mongodb://localhost:27017")
+func TestMongoDeleteNil(t *testing.T) {
+	err := rpsM.Delete(context.Background(), entityEugen.ID)
+	require.NoError(t, err)
+	require.True(t, true)
+}
 
-// 	// Connect to MongoDB
-// 	client, err := mongo.Connect(context.Background(), clientOptions)
+// func TestMongoGetAll(t *testing.T) {
+// 	allPers, err := rpsM.GetAll(context.Background())
 // 	if err != nil {
-// 		return nil, err
+// 		t.Errorf("Expected no error, got: %v", err)
 // 	}
+// 	require.NoError(t, err)
 
-// 	// Check the connection
-// 	err = client.Ping(context.Background(), nil)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	fmt.Println("Connected to MongoDB!")
-
-// 	return client, nil
+// 	var numberPersons int
+// 	err = rpsM.client.QueryRow(context.Background(), "SELECT COUNT(*) FROM  goschema.person").Scan(&numberPersons)
+// 	require.NoError(t, err)
+// 	require.Equal(t, len(allPers), numberPersons)
 // }
 
-// func TestCreateMongoConnect(t *testing.T) {
-// 	client, err := NewMongo()
-// 	// Assert that the client is not nil
-// 	if client == nil {
-// 		t.Error("MongoDB client not created")
-// 	}
+func TestMongoUpdate(t *testing.T) {
+	// Test case 1: Valid update
+	err := rpsM.Update(context.Background(), entityEugen.ID, &entityEugen)
+	require.NoError(t, err)
+	// Test case 2: Invalid uuidString
+	err = rps.Update(context.Background(), uuid.Nil, &entityEugen)
+	require.NoError(t, err)
+}
 
-// 	// Assert that the connection is successful
-// 	if err != nil {
-// 		t.Errorf("Failed to connect to MongoDB: %v", err)
-// 	}
-
-// 	// Assert that the disconnection is successful
-// 	if err != nil {
-// 		t.Errorf("Failed to disconnect from MongoDB: %v", err)
-// 	}
-// }
-
-// func TestFindPersons(t *testing.T) {
-// 	db := MongoDBConnection{} // Create an instance of `MongoDbConnection`
-// 	db.Connect()                         // Connect to the MongoDB database
-
-// 	client, err := NewMongo()
-
-// 	TestMongo.client.FindPersons()
-
-// 	collection := db.client.Database("test").Collection("person")
-// 	_, err = collection.InsertMany(context.Background(), []interface{}{
-// 		bson.M{"name": "John Doe", "age": 25},
-// 		bson.M{"name": "Alice Smith", "age": 30},
-// 	})
-
-// 	if err != nil {
-// 		t.Error("Failed to insert test data")
-// 	}
-
-// 	// Test the `FindPersons()` function
-// 	db.FindPersons()
-
-// 	// Cleanup
-// 	_, err = collection.DeleteMany(context.Background(), bson.M{})
-// 	if err != nil {
-// 		t.Error("Failed to delete test data")
-// 	}
-
-// 	db.Disconnect() // Disconnect from the MongoDB database
-// }
+// Фиктивный тест пока что =================
+func TestMongoCreateWithNegativeAge(t *testing.T) {
+	entityEugen.Age = -1
+	validate := validator.New()
+	err := validate.Struct(entityEugen)
+	require.Error(t, err)
+	if err != nil {
+		err = rpsM.Create(context.Background(), &entityEugen)
+		require.NoError(t, err)
+		require.True(t, true, "not creating entity")
+	}
+}

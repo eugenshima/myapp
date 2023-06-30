@@ -19,18 +19,18 @@ func NewPersonService(rps PersonRepositoryPsql) *PersonServiceImpl {
 	return &PersonServiceImpl{rps: rps}
 }
 
-// PersonService interface, which contains repository methods
+// PersonRepositoryPsql interface, which contains repository methods
 type PersonRepositoryPsql interface {
-	GetById(ctx context.Context, id uuid.UUID) (*model.Person, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*model.Person, error)
 	GetAll(ctx context.Context) ([]model.Person, error)
 	Delete(ctx context.Context, uuidString uuid.UUID) error
 	Create(ctx context.Context, entity *model.Person) error
 	Update(ctx context.Context, uuidString uuid.UUID, entity *model.Person) error
 }
 
-// GetByName is a service function which interacts with PostgreSQL in repository level
-func (db *PersonServiceImpl) GetById(c echo.Context, id uuid.UUID) (*model.Person, error) {
-	return db.rps.GetById(c.Request().Context(), id)
+// GetByID is a service function which interacts with PostgreSQL in repository level
+func (db *PersonServiceImpl) GetByID(c echo.Context, id uuid.UUID) (*model.Person, error) {
+	return db.rps.GetByID(c.Request().Context(), id)
 }
 
 // GetAll is a service function which interacts with repository level

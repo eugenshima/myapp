@@ -8,5 +8,5 @@ type User struct {
 	ID       uuid.UUID `db:"id"`
 	Login    string    `db:"login"`
 	Password string    `db:"password"`
-	Role     string    `db:"role"`
+	Email    string    `db:"email"`
 }

@@ -11,23 +11,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/ory/dockertest"
-	mock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
-
-type TypesPackage struct {
-	mock.Mock
-}
-
-type TypesPackage_Exporter struct {
-	mock *mock.Mock
-}
-
-func (_m *TypesPackage) EXPECT() *TypesPackage_Exporter {
-	return &TypesPackage_Exporter{mock: &_m.Mock}
-}
 
 func SetupTestPgx() (*pgxpool.Pool, func(), error) {
 	pool, err := dockertest.NewPool("")
@@ -70,7 +57,7 @@ func SetupTestMongoDB() (*mongo.Client, func(), error) {
 		return nil, nil, fmt.Errorf("could not start resource: %w", err)
 	}
 	port := resource.GetPort("27017/tcp")
-	mongoURL := fmt.Sprintf("mongodb://eugenshim2a:ur2qly1ini@localhost:%s", port)
+	mongoURL := fmt.Sprintf("mongodb://eugenshima:ur2qly1ini@localhost:%s", port)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse dbURL: %w", err)
 	}
@@ -120,7 +107,7 @@ var entityEugen = model.Person{
 func TestPgxCreate(t *testing.T) {
 	err := rps.Create(context.Background(), &entityEugen)
 	require.NoError(t, err)
-	testEntity, err := rps.GetById(context.Background(), entityEugen.ID)
+	testEntity, err := rps.GetByID(context.Background(), entityEugen.ID)
 	require.NoError(t, err)
 	require.Equal(t, testEntity.ID, entityEugen.ID)
 	require.Equal(t, testEntity.Name, entityEugen.Name)
@@ -173,5 +160,4 @@ func TestPgxCreateWithNegativeAge(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, true, "not creating entity")
 	}
-
 }

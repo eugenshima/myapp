@@ -14,25 +14,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// PersonServiceImpl is a struct that contains a reference to the repository interface
-type MainImpl struct {
-	hndl PersonHandler
-}
-
-// NewPsqlService is a constructor for the PersonServiceImpl struct
-func NewPsqlService(hndl PersonHandler) *MainImpl {
-	return &MainImpl{hndl: hndl}
-}
-
-// PersonService interface, which contains repository methods
-type PersonHandler interface {
-	GetByName(c echo.Context) error
-	GetAll(c echo.Context) error
-	Delete(c echo.Context) error
-	Create(c echo.Context) error
-	Update(c echo.Context) error
-}
-
 // NewMongo creates a connection to MongoDB server
 func NewMongo() (*mongo.Client, error) {
 	clientOptions := options.Client().ApplyURI("mongodb://localhost:27017")
@@ -40,13 +21,13 @@ func NewMongo() (*mongo.Client, error) {
 	// Connect to MongoDB
 	client, err := mongo.Connect(context.Background(), clientOptions)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error connecting to MongoDB: %v", err)
 	}
 
 	// Check the connection
 	err = client.Ping(context.Background(), nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error connecting to MongoDB: %v", err)
 	}
 	fmt.Println("Connected to MongoDB!")
 
@@ -58,13 +39,13 @@ func NewDBPsql() (*pgxpool.Pool, error) {
 	// Initialization a connect configuration for a PostgreSQL using pgx driver
 	config, err := pgxpool.ParseConfig("postgres://eugen:ur2qly1ini@localhost:5432/eugen")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error connection to PostgreSQL: %v", err)
 	}
 
 	// Establishing a new connection to a PostgreSQL database using the pgx driver
 	pool, err := pgxpool.ConnectConfig(context.Background(), config)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error connection to PostgreSQL: %v", err)
 	}
 	// Output to console
 	fmt.Println("Connection to PostgreSQL successful")
@@ -76,41 +57,51 @@ func NewDBPsql() (*pgxpool.Pool, error) {
 func main() {
 	e := echo.New()
 
-	ch := 2
-	//TODO: switch case between databases(mongo or postgreSQL)
+	ch := 1
 
-	//Initializing the Database Connector (MongoDB)
+	// Initializing the Database Connector (MongoDB)
 	client, err := NewMongo()
 	if err != nil {
-		fmt.Println(err)
+		fmt.Printf("Error creating database connection with PostgreSQL: %v", err)
 	}
 	// Initializing the Database Connector (PostgreSQL)
 	pool, err := NewDBPsql()
 	if err != nil {
-		fmt.Println(err)
+		fmt.Printf("Error creating database connection with PostgreSQL: %v", err)
 	}
 	var handlr *handlers.PersonHandlerImpl
+	var uhandlr *handlers.UserHandlerImpl
 	switch ch {
 	case 2:
 
-		//TODO: mongoDB
+		// Person db mongodb
 		rps := repository.NewMongoDBConnection(client)
 		srv := service.NewPersonService(rps)
 		handlr = handlers.NewPersonHandler(srv)
 
 	default:
-
+		// Person db pgx
 		rps := repository.NewPsqlConnection(pool)
 		srv := service.NewPersonService(rps)
 		handlr = handlers.NewPersonHandler(srv)
+
+		// User db pgx
+		urps := repository.NewUserPsqlConnection(pool)
+		usrv := service.NewUserServiceImpl(urps)
+		uhandlr = handlers.NewUserHandlerImpl(usrv)
 	}
 
-	e.GET("/person/getById/:id", handlr.GetById)
+	// Person requests
+	e.GET("/person/getById/:id", handlr.GetByID)
 	e.GET("/person/getAll", handlr.GetAll)
 	e.DELETE("/person/delete/:id", handlr.Delete)
 	e.POST("/person/insert", handlr.Create)
 	e.PATCH("/person/update/:id", handlr.Update)
 
-	e.Logger.Fatal(e.Start(":1323"))
+	// User requests
+	e.GET("/user/login", uhandlr.Login)
+	e.POST("/user/signup", uhandlr.Signup)
+	e.GET("/user/getAll", uhandlr.GetAll)
 
+	e.Logger.Fatal(e.Start(":1323"))
 }
