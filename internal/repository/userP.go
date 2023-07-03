@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/eugenshima/myapp/internal/model"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -22,14 +23,13 @@ func NewUserPsqlConnection(pool *pgxpool.Pool) *UserPsqlConnection {
 }
 
 // Login function executes a query, which select all rows from user table
-func (db *UserPsqlConnection) GetUser(ctx context.Context, login, password string) (*model.User, error) {
-	fmt.Println(password)
+func (db *UserPsqlConnection) GetUser(ctx context.Context, login string) (uuid.UUID, []byte, error) {
 	var user model.User
-	err := db.pool.QueryRow(ctx, "SELECT id FROM goschema.user WHERE login = $1 AND password = $2", login, password).Scan(&user.ID)
+	err := db.pool.QueryRow(ctx, "SELECT id, password FROM goschema.user WHERE login = $1", login).Scan(&user.ID, &user.Password)
 	if err != nil {
-		return nil, fmt.Errorf("error executing query: %v", err)
+		return uuid.Nil, nil, fmt.Errorf("error executing query: %v", err)
 	}
-	return &user, nil
+	return user.ID, user.Password, nil
 }
 
 // signup function executes a query, which insert a user to user table

@@ -8,6 +8,7 @@ import (
 	"github.com/caarlos0/env/v9"
 	"github.com/eugenshima/myapp/internal/config"
 	"github.com/eugenshima/myapp/internal/handlers"
+	middlwr "github.com/eugenshima/myapp/internal/middleware"
 	"github.com/eugenshima/myapp/internal/repository"
 	"github.com/eugenshima/myapp/internal/service"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -62,15 +63,11 @@ func main() {
 
 	cfg := config.Config{}
 
-	//validate := validator.New()
-	// Используйте env.Parse() для разбора существующих переменных окружения
 	err := env.Parse(&cfg)
 	if err != nil {
 		fmt.Println("Ошибка при разборе переменных окружения:", err)
 		return
 	}
-
-	// Доступ к системной переменной окружения
 
 	ch := 1
 
@@ -106,17 +103,24 @@ func main() {
 		uhandlr = handlers.NewUserHandlerImpl(usrv)
 	}
 
-	// Person requests
-	e.GET("/person/getById/:id", handlr.GetByID)
-	e.GET("/person/getAll", handlr.GetAll)
-	e.DELETE("/person/delete/:id", handlr.Delete)
-	e.POST("/person/insert", handlr.Create)
-	e.PATCH("/person/update/:id", handlr.Update)
+	api := e.Group("/api")
+	{
+		person := api.Group("/person")
+		{
+			person.POST("/insert", handlr.Create, middlwr.UserIdentity())
+			person.GET("/getAll", handlr.GetAll, middlwr.UserIdentity())
+			person.GET("/getById/:id", handlr.GetByID, middlwr.UserIdentity())
+			person.PATCH("/person/update/:id", handlr.Update, middlwr.UserIdentity())
+			person.DELETE("/delete/:id", handlr.Delete, middlwr.UserIdentity())
+		}
 
-	// User requests
-	e.GET("/user/login", uhandlr.Login)
-	e.POST("/user/signup", uhandlr.Signup)
-	e.GET("/user/getAll", uhandlr.GetAll)
+		user := api.Group("/user")
+		{
+			user.GET("/login", uhandlr.Login)
+			user.POST("/signup", uhandlr.Signup)
+			user.GET("/getAll", uhandlr.GetAll)
+		}
+	}
 
 	e.Logger.Fatal(e.Start(cfg.HTTPAddr))
 }

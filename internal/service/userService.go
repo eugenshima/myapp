@@ -3,12 +3,15 @@ package service
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/eugenshima/myapp/internal/model"
 	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"golang.org/x/crypto/bcrypt"
 )
 
 const (
@@ -19,7 +22,7 @@ const (
 
 type tokenClaims struct {
 	jwt.StandardClaims
-	id uuid.UUID `db:"id"`
+	UserId uuid.UUID `db:"id"`
 }
 
 // UserServiceImpl is a struct that contains a reference to the repository interface
@@ -36,24 +39,29 @@ func NewUserServiceImpl(rps UserRepositoryPsql) *UserServiceImpl {
 
 // PersonRepositoryPsql interface, which contains repository methods
 type UserRepositoryPsql interface {
-	GetUser(ctx context.Context, login, password string) (*model.User, error)
+	GetUser(ctx context.Context, login string) (uuid.UUID, []byte, error)
 	Signup(context.Context, *model.User) error
 	GetAll(context.Context) ([]*model.User, error)
 }
 
 // Login implements the UserServicePsql interface
 func (db *UserServiceImpl) GenerateToken(c echo.Context, login, password string) (string, error) {
-	user, err := db.rps.GetUser(c.Request().Context(), login, password)
+	// hashedPassword := hashPassword(password)
+	id, pass, err := db.rps.GetUser(c.Request().Context(), login)
+	if err != nil {
+		return "", err
+	}
+	err = bcrypt.CompareHashAndPassword(pass, []byte(password))
 	if err != nil {
 		return "", err
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodES256, &tokenClaims{
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &tokenClaims{
 		jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(tokenTTL).Unix(),
 			IssuedAt:  time.Now().Unix(),
 		},
-		user.ID,
+		id,
 	})
 	return token.SignedString([]byte(signingKey))
 	//return db.rps.GetUser(c.Request().Context(), login, password)
@@ -61,6 +69,8 @@ func (db *UserServiceImpl) GenerateToken(c echo.Context, login, password string)
 
 // Signup implements the UserServicePsql interface
 func (db *UserServiceImpl) Signup(c echo.Context, entity *model.User) error {
+	hashedPassword := hashPassword(entity.Password)
+	entity.Password = hashedPassword
 	return db.rps.Signup(c.Request().Context(), entity)
 }
 
@@ -68,11 +78,31 @@ func (db *UserServiceImpl) GetAll(c echo.Context) ([]*model.User, error) {
 	return db.rps.GetAll(c.Request().Context())
 }
 
-// func hashPassword(password string) string {
-// 	fmt.Println(password)
-// 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-// 	if err != nil {
-// 		return ""
-// 	}
-// 	return string(hashedPassword)
-// }
+func (db *UserServiceImpl) ParseToken(accessToken string) (uuid.UUID, error) {
+	token, err := jwt.ParseWithClaims(accessToken, &tokenClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("invalid signing method")
+		}
+
+		return []byte(signingKey), nil
+	})
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	claims, ok := token.Claims.(*tokenClaims)
+	if !ok {
+		return uuid.Nil, errors.New("token claims are not of type *tokenClaims")
+	}
+	return claims.UserId, nil
+}
+
+func hashPassword(password []byte) []byte {
+	fmt.Println(password)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+
+	if err != nil {
+		return nil
+	}
+	return hashedPassword
+}

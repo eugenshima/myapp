@@ -7,6 +7,6 @@ import "github.com/google/uuid"
 type User struct {
 	ID       uuid.UUID `db:"id"`
 	Login    string    `db:"login" validate:"required"`
-	Password string    `db:"password" validate:"required"`
-	Email    string    `db:"email" validate:"required"`
+	Password []byte    `db:"password" validate:"required"`
+	Email    string    `db:"email"`
 }

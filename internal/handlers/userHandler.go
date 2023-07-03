@@ -32,12 +32,19 @@ type UserService interface {
 	GenerateToken(c echo.Context, login, password string) (string, error)
 	Signup(c echo.Context, entity *model.User) error
 	GetAll(c echo.Context) ([]*model.User, error)
+	ParseToken(accessToken string) (uuid.UUID, error)
 }
 
 // UserHandlerImpl represents
 type signInInput struct {
 	Login    string `db:"login"`
 	Password string `db:"password"`
+}
+
+type RequestBody struct {
+	Login    string `json:"login"`
+	Password string `json:"password"`
+	Email    string `json:"email"`
 }
 
 // Login receives a GET request from client and returns a user(if exists)
@@ -59,6 +66,7 @@ func (handler *UserHandlerImpl) Login(c echo.Context) error {
 	}
 
 	token, err := handler.srv.GenerateToken(c, input.Login, input.Password)
+	fmt.Println(token)
 	if err != nil {
 		logrus.Errorf("error Generating JWT token %v", err)
 		str := fmt.Sprintf("Error in userHandler: %v", err)
@@ -69,6 +77,8 @@ func (handler *UserHandlerImpl) Login(c echo.Context) error {
 
 // Signup receives a POST request from client to sign up a user
 func (handler *UserHandlerImpl) Signup(c echo.Context) error {
+	var reqBody RequestBody
+
 	req := c.Request()
 
 	// get request body
@@ -77,27 +87,35 @@ func (handler *UserHandlerImpl) Signup(c echo.Context) error {
 		return err
 	}
 
-	var entity *model.User
-	err = json.Unmarshal(body, &entity)
+	err = json.Unmarshal(body, &reqBody)
 	if err != nil {
-		logrus.Errorf("error Unmarshalling...    %v", err)
-		str := fmt.Sprintf("error in handler: %v", err)
+		logrus.Errorf("Error unmarshalling...   %v", err)
+		str := fmt.Sprintf("Error in userHandler: %v", err)
 		return c.String(http.StatusNotFound, str)
 	}
-	entity.ID = uuid.New()
+
+	entity := &model.User{
+		ID:       uuid.New(),
+		Login:    reqBody.Login,
+		Password: []byte(reqBody.Password),
+		Email:    reqBody.Email,
+	}
+
 	validate := validator.New()
 	if err := validate.Struct(entity); err != nil {
 		logrus.Errorf("error in handler: %v", err)
 		str := fmt.Sprintf("Error in handler: %v", err)
-		return c.String(http.StatusNotFound, str)
+		return c.String(http.StatusBadRequest, str)
 	}
+
 	err = handler.srv.Signup(c, entity)
 	if err != nil {
-		logrus.Errorf("error calling Signup method %v", err)
+		logrus.Errorf("error calling Signup method: %v", err)
 		str := fmt.Sprintf("Error in userHandler: %v", err)
-		return c.String(http.StatusNotFound, str)
+		return c.String(http.StatusInternalServerError, str)
 	}
-	return c.JSON(http.StatusOK, "Creared")
+
+	return c.JSON(http.StatusOK, "Created")
 }
 
 func (handler *UserHandlerImpl) GetAll(c echo.Context) error {
