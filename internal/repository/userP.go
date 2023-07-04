@@ -17,12 +17,12 @@ type UserPsqlConnection struct {
 	pool *pgxpool.Pool
 }
 
-// NewPsqlConnection constructor for PsqlConnection
+// NewUserPsqlConnection constructor for PsqlConnection
 func NewUserPsqlConnection(pool *pgxpool.Pool) *UserPsqlConnection {
 	return &UserPsqlConnection{pool: pool}
 }
 
-// Login function executes a query, which select all rows from user table
+// GetUser function executes a query, which select all rows from user table
 func (db *UserPsqlConnection) GetUser(ctx context.Context, login string) (uuid.UUID, []byte, error) {
 	var user model.User
 	err := db.pool.QueryRow(ctx, "SELECT id, password FROM goschema.user WHERE login = $1", login).Scan(&user.ID, &user.Password)
@@ -63,13 +63,13 @@ func (db *UserPsqlConnection) GetAll(ctx context.Context) ([]*model.User, error)
 	return users, nil
 }
 
-func (db *UserPsqlConnection) SaveRefreshToken(ctx context.Context, ID uuid.UUID, token string) error {
+// SaveRefreshToken func executes a query, which saves the refresh token to a specific user
+func (db *UserPsqlConnection) SaveRefreshToken(ctx context.Context, ID uuid.UUID, token []byte) error {
 	var user model.User
 	err := db.pool.QueryRow(ctx, "SELECT id, login, password, role FROM goschema.user WHERE id=$1", &ID).Scan(&user.ID, &user.Login, &user.Password, &user.Role)
 	if err != nil {
 		return fmt.Errorf("error in SaveRefreshToken: %v ", err)
 	}
-	fmt.Println("refresh token --> ", token)
 	bd, err := db.pool.Exec(ctx, "UPDATE goschema.user SET refreshtoken=$1 WHERE id=$2", &token, &user.ID)
 	if err != nil && !bd.Update() {
 		return fmt.Errorf("error updating user: %v", err)

@@ -13,7 +13,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
-	//"github.com/sirupsen/logrus"
 )
 
 // UserHandlerImpl struct represents a user handler implementation
@@ -21,7 +20,7 @@ type UserHandlerImpl struct {
 	srv UserService
 }
 
-// NewHandler creates a new Handler
+// NewUserHandlerImpl creates a new Handler
 func NewUserHandlerImpl(srv UserService) *UserHandlerImpl {
 	return &UserHandlerImpl{
 		srv: srv,
@@ -30,18 +29,18 @@ func NewUserHandlerImpl(srv UserService) *UserHandlerImpl {
 
 // UserService interface implementation
 type UserService interface {
-	GenerateToken(ctx context.Context, login, password string) (string, error)
+	GenerateToken(ctx context.Context, login, password string) (string, string, error)
 	Signup(ctx context.Context, entity *model.User) error
 	GetAll(ctx context.Context) ([]*model.User, error)
-	ParseToken(ctx context.Context, accessToken string) (uuid.UUID, error)
 }
 
 // UserHandlerImpl represents
 type signInInput struct {
-	Login    string `db:"login"`
-	Password string `db:"password"`
+	Login    string `json:"login"`
+	Password string `json:"password"`
 }
 
+// NewUserHandlerImpl creates a new UserHandler
 type RequestBody struct {
 	Login    string `json:"login"`
 	Password string `json:"password"`
@@ -66,14 +65,17 @@ func (handler *UserHandlerImpl) Login(c echo.Context) error {
 		return c.String(http.StatusNotFound, str)
 	}
 
-	token, err := handler.srv.GenerateToken(c.Request().Context(), input.Login, input.Password)
-	fmt.Println("access token -->", token)
+	accessToken, refreshToken, err := handler.srv.GenerateToken(c.Request().Context(), input.Login, input.Password)
 	if err != nil {
 		logrus.Errorf("error Generating JWT token %v", err)
 		str := fmt.Sprintf("Error in userHandler: %v", err)
 		return c.String(http.StatusNotFound, str)
 	}
-	return c.JSON(http.StatusOK, token)
+	response := map[string]interface{}{
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+	}
+	return c.JSON(http.StatusOK, response)
 }
 
 // Signup receives a POST request from client to sign up a user
@@ -103,7 +105,7 @@ func (handler *UserHandlerImpl) Signup(c echo.Context) error {
 	}
 
 	validate := validator.New()
-	if err := validate.Struct(entity); err != nil {
+	if err = validate.Struct(entity); err != nil {
 		logrus.Errorf("error in handler: %v", err)
 		str := fmt.Sprintf("Error in handler: %v", err)
 		return c.String(http.StatusBadRequest, str)
@@ -119,6 +121,7 @@ func (handler *UserHandlerImpl) Signup(c echo.Context) error {
 	return c.JSON(http.StatusOK, "Created")
 }
 
+// GetAll receives a POST request from client for getting all entities from the server
 func (handler *UserHandlerImpl) GetAll(c echo.Context) error {
 	results, err := handler.srv.GetAll(c.Request().Context())
 	if err != nil {

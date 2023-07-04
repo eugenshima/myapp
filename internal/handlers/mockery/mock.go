@@ -1,4 +1,4 @@
-// mocks package for testing
+// Package mocks for testing
 package mocks
 
 import (
@@ -10,10 +10,12 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+// MockMongoDBConnection is a mock connection to MongoDB
 type MockMongoDBConnection struct {
 	mock.Mock
 }
 
+// GetAll is a mock
 func (m *MockMongoDBConnection) GetAll(ctx context.Context) ([]model.Person, error) {
 	args := m.Called(ctx)
 
@@ -24,6 +26,7 @@ func (m *MockMongoDBConnection) GetAll(ctx context.Context) ([]model.Person, err
 	return args.Get(0).([]model.Person), nil
 }
 
+// TestGetAll is testing for GetAll method
 func TestGetAll(t *testing.T) {
 	mockConn := new(MockMongoDBConnection)
 

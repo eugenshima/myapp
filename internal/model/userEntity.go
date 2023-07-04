@@ -9,7 +9,7 @@ type User struct {
 	Login        string    `db:"login" validate:"required"`
 	Password     []byte    `db:"password" validate:"required"`
 	Role         string    `db:"role"`
-	RefreshToken string    `db:"refreshtoken"`
+	RefreshToken []byte    `db:"refreshtoken"`
 }
 
 // role & token

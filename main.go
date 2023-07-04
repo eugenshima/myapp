@@ -106,20 +106,16 @@ func main() {
 	api := e.Group("/api")
 	{
 		person := api.Group("/person")
-		{
-			person.POST("/insert", handlr.Create, middlwr.UserIdentity())
-			person.GET("/getAll", handlr.GetAll, middlwr.UserIdentity())
-			person.GET("/getById/:id", handlr.GetByID, middlwr.UserIdentity())
-			person.PATCH("/person/update/:id", handlr.Update, middlwr.UserIdentity())
-			person.DELETE("/delete/:id", handlr.Delete, middlwr.UserIdentity())
-		}
+		person.POST("/insert", handlr.Create, middlwr.UserIdentity())
+		person.GET("/getAll", handlr.GetAll, middlwr.UserIdentity())
+		person.GET("/getById/:id", handlr.GetByID, middlwr.UserIdentity())
+		person.PATCH("/person/update/:id", handlr.Update, middlwr.UserIdentity())
+		person.DELETE("/delete/:id", handlr.Delete, middlwr.UserIdentity())
 
 		user := api.Group("/user")
-		{
-			user.GET("/login", uhandlr.Login)
-			user.POST("/signup", uhandlr.Signup)
-			user.GET("/getAll", uhandlr.GetAll)
-		}
+		user.GET("/login", uhandlr.Login)
+		user.POST("/signup", uhandlr.Signup)
+		user.GET("/getAll", uhandlr.GetAll, middlwr.UserIdentity())
 	}
 
 	e.Logger.Fatal(e.Start(cfg.HTTPAddr))
