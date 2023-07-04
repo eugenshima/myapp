@@ -2,6 +2,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -29,10 +30,10 @@ func NewUserHandlerImpl(srv UserService) *UserHandlerImpl {
 
 // UserService interface implementation
 type UserService interface {
-	GenerateToken(c echo.Context, login, password string) (string, error)
-	Signup(c echo.Context, entity *model.User) error
-	GetAll(c echo.Context) ([]*model.User, error)
-	ParseToken(accessToken string) (uuid.UUID, error)
+	GenerateToken(ctx context.Context, login, password string) (string, error)
+	Signup(ctx context.Context, entity *model.User) error
+	GetAll(ctx context.Context) ([]*model.User, error)
+	ParseToken(ctx context.Context, accessToken string) (uuid.UUID, error)
 }
 
 // UserHandlerImpl represents
@@ -44,7 +45,7 @@ type signInInput struct {
 type RequestBody struct {
 	Login    string `json:"login"`
 	Password string `json:"password"`
-	Email    string `json:"email"`
+	Role     string `json:"role"`
 }
 
 // Login receives a GET request from client and returns a user(if exists)
@@ -65,8 +66,8 @@ func (handler *UserHandlerImpl) Login(c echo.Context) error {
 		return c.String(http.StatusNotFound, str)
 	}
 
-	token, err := handler.srv.GenerateToken(c, input.Login, input.Password)
-	fmt.Println(token)
+	token, err := handler.srv.GenerateToken(c.Request().Context(), input.Login, input.Password)
+	fmt.Println("access token -->", token)
 	if err != nil {
 		logrus.Errorf("error Generating JWT token %v", err)
 		str := fmt.Sprintf("Error in userHandler: %v", err)
@@ -98,7 +99,7 @@ func (handler *UserHandlerImpl) Signup(c echo.Context) error {
 		ID:       uuid.New(),
 		Login:    reqBody.Login,
 		Password: []byte(reqBody.Password),
-		Email:    reqBody.Email,
+		Role:     reqBody.Role,
 	}
 
 	validate := validator.New()
@@ -108,7 +109,7 @@ func (handler *UserHandlerImpl) Signup(c echo.Context) error {
 		return c.String(http.StatusBadRequest, str)
 	}
 
-	err = handler.srv.Signup(c, entity)
+	err = handler.srv.Signup(c.Request().Context(), entity)
 	if err != nil {
 		logrus.Errorf("error calling Signup method: %v", err)
 		str := fmt.Sprintf("Error in userHandler: %v", err)
@@ -119,7 +120,7 @@ func (handler *UserHandlerImpl) Signup(c echo.Context) error {
 }
 
 func (handler *UserHandlerImpl) GetAll(c echo.Context) error {
-	results, err := handler.srv.GetAll(c)
+	results, err := handler.srv.GetAll(c.Request().Context())
 	if err != nil {
 		str := fmt.Sprintf("Error in userHandler: %v", err)
 		return c.String(http.StatusNotFound, str)

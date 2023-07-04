@@ -7,17 +7,18 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/caarlos0/env/v9"
+	"github.com/eugenshima/myapp/internal/config"
 	"github.com/eugenshima/myapp/internal/model"
 	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
-	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
 )
 
 const (
-	salt       = "hjgrhjgw124617ajfhajs"
-	signingKey = "gyewgb2rf8r2b8437frb23"
-	tokenTTL   = 1 * time.Hour
+	salt            = "hjgrhjgw124617ajfhajs"
+	accessTokenTTL  = 3 * time.Minute
+	refreshTokenTTL = 24 * time.Hour
 )
 
 type tokenClaims struct {
@@ -42,49 +43,75 @@ type UserRepositoryPsql interface {
 	GetUser(ctx context.Context, login string) (uuid.UUID, []byte, error)
 	Signup(context.Context, *model.User) error
 	GetAll(context.Context) ([]*model.User, error)
+	SaveRefreshToken(ctx context.Context, id uuid.UUID, token string) error
 }
 
 // Login implements the UserServicePsql interface
-func (db *UserServiceImpl) GenerateToken(c echo.Context, login, password string) (string, error) {
-	// hashedPassword := hashPassword(password)
-	id, pass, err := db.rps.GetUser(c.Request().Context(), login)
+func (db *UserServiceImpl) GenerateToken(ctx context.Context, login, password string) (string, error) {
+
+	cfg := config.Config{}
+	err := env.Parse(&cfg)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error parsing environment variable: %v", err)
+	}
+	// hashedPassword := hashPassword(password)
+	id, pass, err := db.rps.GetUser(ctx, login)
+	if err != nil {
+		return "", fmt.Errorf("error in GenerateToken (GetUser): %v", err)
 	}
 	err = bcrypt.CompareHashAndPassword(pass, []byte(password))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error in GenerateToken (CompareHashAndPassword): %v", err)
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &tokenClaims{
+	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, &tokenClaims{
 		jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(tokenTTL).Unix(),
+			ExpiresAt: time.Now().Add(accessTokenTTL).Unix(),
 			IssuedAt:  time.Now().Unix(),
 		},
 		id,
 	})
-	return token.SignedString([]byte(signingKey))
-	//return db.rps.GetUser(c.Request().Context(), login, password)
+	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, &tokenClaims{
+		jwt.StandardClaims{
+			ExpiresAt: time.Now().Add(refreshTokenTTL).Unix(),
+			IssuedAt:  time.Now().Unix(),
+		},
+		id,
+	})
+	refreshToDB, err := refreshToken.SignedString([]byte(cfg.SigningKey))
+	if err != nil {
+		return "", fmt.Errorf("error in refresh token: %v", err)
+	}
+	err = db.rps.SaveRefreshToken(ctx, id, refreshToDB)
+	if err != nil {
+		return "", fmt.Errorf("error in GenerateToken(SaveRefreshToken): %v", err)
+	}
+	return accessToken.SignedString([]byte(cfg.SigningKey))
 }
 
 // Signup implements the UserServicePsql interface
-func (db *UserServiceImpl) Signup(c echo.Context, entity *model.User) error {
+func (db *UserServiceImpl) Signup(ctx context.Context, entity *model.User) error {
 	hashedPassword := hashPassword(entity.Password)
 	entity.Password = hashedPassword
-	return db.rps.Signup(c.Request().Context(), entity)
+	return db.rps.Signup(ctx, entity)
 }
 
-func (db *UserServiceImpl) GetAll(c echo.Context) ([]*model.User, error) {
-	return db.rps.GetAll(c.Request().Context())
+func (db *UserServiceImpl) GetAll(ctx context.Context) ([]*model.User, error) {
+	return db.rps.GetAll(ctx)
 }
 
-func (db *UserServiceImpl) ParseToken(accessToken string) (uuid.UUID, error) {
+func (db *UserServiceImpl) ParseToken(ctx context.Context, accessToken string) (uuid.UUID, error) {
+	cfg := config.Config{}
+	err := env.Parse(&cfg)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("error parsing environment variable: %v", err)
+	}
 	token, err := jwt.ParseWithClaims(accessToken, &tokenClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("invalid signing method")
 		}
 
-		return []byte(signingKey), nil
+		return []byte(cfg.SigningKey), nil
 	})
 	if err != nil {
 		return uuid.Nil, err

@@ -5,8 +5,11 @@ import "github.com/google/uuid"
 
 // User struct user which represents database entity with the same name
 type User struct {
-	ID       uuid.UUID `db:"id"`
-	Login    string    `db:"login" validate:"required"`
-	Password []byte    `db:"password" validate:"required"`
-	Email    string    `db:"email"`
+	ID           uuid.UUID `db:"id"`
+	Login        string    `db:"login" validate:"required"`
+	Password     []byte    `db:"password" validate:"required"`
+	Role         string    `db:"role"`
+	RefreshToken string    `db:"refreshtoken"`
 }
+
+// role & token

@@ -6,4 +6,5 @@ type Config struct {
 	HTTPAddr    string `env:"HTTP_PORT" envDefault:":8080"`
 	PgxDBAddr   string `env:"PGXCONN" envDefault:"postgres://eugen:ur2qly1ini@localhost:5432/eugen"`
 	MongoDBADDR string `env:"MONGODBCONN" envDefault:"mongodb://localhost:27017"`
+	SigningKey  string `env:"SIGNING_KEY" envDefault:"gyewgb2rf8r2b8437frb23f2er243"`
 }

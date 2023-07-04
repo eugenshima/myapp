@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/caarlos0/env/v9"
+	"github.com/eugenshima/myapp/internal/config"
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 )
@@ -25,9 +27,14 @@ func UserIdentity() echo.MiddlewareFunc {
 			if len(headerParts) != 2 || headerParts[0] != "Bearer" {
 				return echo.NewHTTPError(http.StatusUnauthorized, "Invalid authorization header format")
 			}
-
+			// getting environment variable
+			cfg := config.Config{}
+			err := env.Parse(&cfg)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusUnauthorized, "Invalid env variable")
+			}
 			// checking for valid access token
-			token, err := ValidateToken(headerParts[1], "gyewgb2rf8r2b8437frb23")
+			token, err := ValidateToken(headerParts[1], cfg.SigningKey)
 			if err != nil || !token.Valid {
 				return echo.NewHTTPError(http.StatusUnauthorized, "Invalid token")
 			}
@@ -43,7 +50,7 @@ func UserIdentity() echo.MiddlewareFunc {
 	}
 }
 
-// ValidateToken parses tokenString and checks if signing method is ok and return jwt token with filled Valid field
+// ValidateToken parses tokenString and returns valid jwt token string
 func ValidateToken(tokenString, signingKey string) (*jwt.Token, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
