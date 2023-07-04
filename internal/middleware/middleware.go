@@ -7,8 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/caarlos0/env/v9"
 	"github.com/eugenshima/myapp/internal/config"
+
+	"github.com/caarlos0/env/v9"
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 )

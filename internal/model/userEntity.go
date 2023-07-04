@@ -12,4 +12,15 @@ type User struct {
 	RefreshToken []byte    `db:"refreshtoken"`
 }
 
-// role & token
+// Login struct for user
+type Login struct {
+	Login    string `db:"login" validate:"required"`
+	Password string `db:"password" validate:"required"`
+}
+
+// Signup struct for user
+type Signup struct {
+	Login    string `json:"login"`
+	Password string `json:"password"`
+	Role     string `json:"role"`
+}

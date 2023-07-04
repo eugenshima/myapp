@@ -9,6 +9,7 @@ import (
 
 	"github.com/eugenshima/myapp/internal/model"
 	"github.com/google/uuid"
+
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -66,11 +67,11 @@ func (db *UserPsqlConnection) GetAll(ctx context.Context) ([]*model.User, error)
 // SaveRefreshToken func executes a query, which saves the refresh token to a specific user
 func (db *UserPsqlConnection) SaveRefreshToken(ctx context.Context, ID uuid.UUID, token []byte) error {
 	var user model.User
-	err := db.pool.QueryRow(ctx, "SELECT id, login, password, role FROM goschema.user WHERE id=$1", &ID).Scan(&user.ID, &user.Login, &user.Password, &user.Role)
+	err := db.pool.QueryRow(ctx, "SELECT id, login, password, role FROM goschema.user WHERE id=$1", ID).Scan(&user.ID, &user.Login, &user.Password, &user.Role)
 	if err != nil {
 		return fmt.Errorf("error in SaveRefreshToken: %v ", err)
 	}
-	bd, err := db.pool.Exec(ctx, "UPDATE goschema.user SET refreshtoken=$1 WHERE id=$2", &token, &user.ID)
+	bd, err := db.pool.Exec(ctx, "UPDATE goschema.user SET refreshtoken=$1 WHERE id=$2", token, user.ID)
 	if err != nil && !bd.Update() {
 		return fmt.Errorf("error updating user: %v", err)
 	}

@@ -3,12 +3,11 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/eugenshima/myapp/internal/model"
+
 	"github.com/go-playground/validator"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -29,47 +28,24 @@ func NewUserHandlerImpl(srv UserService) *UserHandlerImpl {
 
 // UserService interface implementation
 type UserService interface {
-	GenerateToken(ctx context.Context, login, password string) (string, string, error)
+	GenerateTokens(ctx context.Context, login, password string) (string, string, error)
 	Signup(ctx context.Context, entity *model.User) error
 	GetAll(ctx context.Context) ([]*model.User, error)
 }
 
-// UserHandlerImpl represents
-type signInInput struct {
-	Login    string `json:"login"`
-	Password string `json:"password"`
-}
-
-// NewUserHandlerImpl creates a new UserHandler
-type RequestBody struct {
-	Login    string `json:"login"`
-	Password string `json:"password"`
-	Role     string `json:"role"`
-}
-
 // Login receives a GET request from client and returns a user(if exists)
 func (handler *UserHandlerImpl) Login(c echo.Context) error {
-	req := c.Request()
-
-	// get request body
-	body, err := ioutil.ReadAll(req.Body)
+	input := model.Login{}
+	err := c.Bind(&input)
 	if err != nil {
-		return err
+		logrus.Errorf("Error in userHandler: %v", err)
+		return c.String(http.StatusNotFound, fmt.Sprintf("Error in userHandler: %v", err))
 	}
 
-	var input signInInput
-	err = json.Unmarshal(body, &input)
-	if err != nil {
-		logrus.Errorf("Error unmarshalling...   %v", err)
-		str := fmt.Sprintf("Error in userHandler: %v", err)
-		return c.String(http.StatusNotFound, str)
-	}
-
-	accessToken, refreshToken, err := handler.srv.GenerateToken(c.Request().Context(), input.Login, input.Password)
+	accessToken, refreshToken, err := handler.srv.GenerateTokens(c.Request().Context(), input.Login, input.Password)
 	if err != nil {
 		logrus.Errorf("error Generating JWT token %v", err)
-		str := fmt.Sprintf("Error in userHandler: %v", err)
-		return c.String(http.StatusNotFound, str)
+		return c.String(http.StatusNotFound, fmt.Sprintf("Error in userHandler: %v", err))
 	}
 	response := map[string]interface{}{
 		"access_token":  accessToken,
@@ -80,23 +56,12 @@ func (handler *UserHandlerImpl) Login(c echo.Context) error {
 
 // Signup receives a POST request from client to sign up a user
 func (handler *UserHandlerImpl) Signup(c echo.Context) error {
-	var reqBody RequestBody
-
-	req := c.Request()
-
-	// get request body
-	body, err := ioutil.ReadAll(req.Body)
+	reqBody := model.Signup{}
+	err := c.Bind(&reqBody)
 	if err != nil {
-		return err
+		logrus.Errorf("Error in userHandler: %v", err)
+		return c.String(http.StatusNotFound, fmt.Sprintf("Error in userHandler: %v", err))
 	}
-
-	err = json.Unmarshal(body, &reqBody)
-	if err != nil {
-		logrus.Errorf("Error unmarshalling...   %v", err)
-		str := fmt.Sprintf("Error in userHandler: %v", err)
-		return c.String(http.StatusNotFound, str)
-	}
-
 	entity := &model.User{
 		ID:       uuid.New(),
 		Login:    reqBody.Login,

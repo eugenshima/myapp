@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/eugenshima/myapp/internal/model"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4/pgxpool"

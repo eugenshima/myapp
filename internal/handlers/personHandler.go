@@ -1,12 +1,11 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/eugenshima/myapp/internal/model"
+
 	"github.com/go-playground/validator"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -34,22 +33,18 @@ type PersonService interface {
 
 // GetByID function receives GET request from client
 func (handler *PersonHandlerImpl) GetByID(c echo.Context) error {
-	ID := c.Param("id")
-	var entity model.Person
-	var err error
-	entity.ID, err = uuid.Parse(ID)
+	ID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		logrus.Errorf("Error parsing id: %v", err)
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	result, err := handler.srv.GetByID(c, entity.ID)
+	result, err := handler.srv.GetByID(c, ID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	if err != nil {
 		logrus.Errorf("Error in handler: %v", err)
-		str := fmt.Sprintf("Error in handler: %v", err)
-		return c.String(http.StatusNotFound, str)
+		return c.String(http.StatusNotFound, fmt.Sprintf("Error in handler: %v", err))
 	}
 	return c.JSON(http.StatusOK, result)
 }
@@ -59,97 +54,71 @@ func (handler *PersonHandlerImpl) GetAll(c echo.Context) error {
 	results, err := handler.srv.GetAll(c)
 	if err != nil {
 		logrus.Errorf("Error in handler: %v", err)
-		str := fmt.Sprintf("Error in handler: %v", err)
-		return c.String(http.StatusNotFound, str)
+		return c.String(http.StatusNotFound, fmt.Sprintf("Error in handler: %v", err))
 	}
 	return c.JSON(http.StatusOK, results)
 }
 
 // Delete function receives DELETE request from client
 func (handler *PersonHandlerImpl) Delete(c echo.Context) error {
-	id := c.Param("id")
-	var entity model.Person
-	var err error
-	entity.ID, err = uuid.Parse(id)
+	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		logrus.Errorf("Error in handler: %v", err)
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		return c.String(http.StatusNotFound, fmt.Sprintf("Error in handler: %v", err))
 	}
-	err = handler.srv.Delete(c, entity.ID)
+	err = handler.srv.Delete(c, id)
 	if err != nil {
 		logrus.Errorf("Error in handler: %v", err)
-		str := fmt.Sprintf("Error in handler: %v", err)
-		return c.String(http.StatusNotFound, str)
+		return c.String(http.StatusNotFound, fmt.Sprintf("Error in handler: %v", err))
 	}
 	return c.String(http.StatusOK, "delete request")
 }
 
 // Create function receives POST request from client
 func (handler *PersonHandlerImpl) Create(c echo.Context) error {
-	req := c.Request()
-
-	// get request body
-	body, err := ioutil.ReadAll(req.Body)
+	var entity *model.Person
+	err := c.Bind(&entity)
 	if err != nil {
 		logrus.Errorf("Error in handler: %v", err)
-
-		return fmt.Errorf("error reading request body: %v", err)
-	}
-
-	var entity *model.Person
-	err = json.Unmarshal(body, &entity)
-	if err != nil {
-		logrus.Errorf("error in handler: %v", err)
-		str := fmt.Sprintf("Error in handler: %v", err)
-		return c.String(http.StatusNotFound, str)
+		return c.String(http.StatusBadRequest, fmt.Sprintf("Error in handler: %v", err))
 	}
 	entity.ID = uuid.New()
 
 	validate := validator.New()
 	if err = validate.Struct(entity); err != nil {
 		logrus.Errorf("error in handler: %v", err)
-		str := fmt.Sprintf("Error in handler: %v", err)
-		return c.String(http.StatusNotFound, str)
+		return c.String(http.StatusNotFound, fmt.Sprintf("Error in handler: %v", err))
 	}
 	err = handler.srv.Create(c, entity)
 	if err != nil {
 		logrus.Errorf("Error in handler: %v", err)
-		str := fmt.Sprintf("Error in handler: %v", err)
-		return c.String(http.StatusNotFound, str)
+		return c.String(http.StatusNotFound, fmt.Sprintf("Error in handler: %v", err))
 	}
 	return c.String(http.StatusOK, "insert request")
 }
 
 // Update function receives PATCH request from client
 func (handler *PersonHandlerImpl) Update(c echo.Context) error {
-	id := c.Param("id")
-	req := c.Request()
-
-	// get request body
-	body, err := ioutil.ReadAll(req.Body)
-	if err != nil {
-		return err
-	}
-	var entity model.Person
-	entity.ID, err = uuid.Parse(id)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
-	}
-	err = json.Unmarshal(body, &entity)
+	var entity *model.Person
+	err := c.Bind(&entity)
 	if err != nil {
 		logrus.Errorf("Error in handler: %v", err)
-		return c.String(http.StatusNotFound, "error unmarshalling request body")
+		return c.String(http.StatusBadRequest, fmt.Sprintf("Error in handler: %v", err))
+	}
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		logrus.Errorf("Error in handler: %v", err)
+		return c.String(http.StatusNotFound, fmt.Sprintf("Error in handler: %v", err))
 	}
 	validate := validator.New()
 	if err = validate.Struct(entity); err != nil {
 		logrus.Errorf("error in handler: %v", err)
-		str := fmt.Sprintf("Error in handler: %v", err)
-		return c.String(http.StatusNotFound, str)
+		return c.String(http.StatusNotFound, fmt.Sprintf("Error in handler: %v", err))
 	}
-	err = handler.srv.Update(c, entity.ID, &entity)
+	err = handler.srv.Update(c, id, entity)
 	if err != nil {
 		logrus.Errorf("Error in handler: %v", err)
-		return c.String(http.StatusNotFound, "error updating (handler error)")
+		return c.String(http.StatusNotFound, fmt.Sprintf("Error in handler: %v", err))
 	}
 	return c.String(http.StatusOK, "update request")
 }

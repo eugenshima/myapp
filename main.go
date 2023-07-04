@@ -5,12 +5,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/caarlos0/env/v9"
-	"github.com/eugenshima/myapp/internal/config"
+	cfg "github.com/eugenshima/myapp/internal/config"
 	"github.com/eugenshima/myapp/internal/handlers"
 	middlwr "github.com/eugenshima/myapp/internal/middleware"
 	"github.com/eugenshima/myapp/internal/repository"
 	"github.com/eugenshima/myapp/internal/service"
+
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/labstack/echo/v4"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -19,7 +19,6 @@ import (
 
 // NewMongo creates a connection to MongoDB server
 func NewMongo(env string) (*mongo.Client, error) {
-
 	clientOptions := options.Client().ApplyURI(env)
 
 	// Connect to MongoDB
@@ -61,25 +60,25 @@ func NewDBPsql(env string) (*pgxpool.Pool, error) {
 func main() {
 	e := echo.New()
 
-	cfg := config.Config{}
-
-	err := env.Parse(&cfg)
+	cfg, err := cfg.NewConfig()
 	if err != nil {
-		fmt.Println("Ошибка при разборе переменных окружения:", err)
+		fmt.Printf("Error extracting env variables: %v", err)
 		return
 	}
 
 	ch := 1
 
 	// Initializing the Database Connector (MongoDB)
-	client, err := NewMongo(cfg.MongoDBADDR)
+	client, err := NewMongo(cfg.MongoDBAddr)
 	if err != nil {
 		fmt.Printf("Error creating database connection with PostgreSQL: %v", err)
+		return
 	}
 	// Initializing the Database Connector (PostgreSQL)
 	pool, err := NewDBPsql(cfg.PgxDBAddr)
 	if err != nil {
 		fmt.Printf("Error creating database connection with PostgreSQL: %v", err)
+		return
 	}
 	var handlr *handlers.PersonHandlerImpl
 	var uhandlr *handlers.UserHandlerImpl
@@ -105,15 +104,18 @@ func main() {
 
 	api := e.Group("/api")
 	{
+		// Person Api
 		person := api.Group("/person")
-		person.POST("/insert", handlr.Create, middlwr.UserIdentity())
-		person.GET("/getAll", handlr.GetAll, middlwr.UserIdentity())
-		person.GET("/getById/:id", handlr.GetByID, middlwr.UserIdentity())
-		person.PATCH("/person/update/:id", handlr.Update, middlwr.UserIdentity())
-		person.DELETE("/delete/:id", handlr.Delete, middlwr.UserIdentity())
+		person.Use(middlwr.UserIdentity())
+		person.POST("/insert", handlr.Create)
+		person.GET("/getAll", handlr.GetAll)
+		person.GET("/getById/:id", handlr.GetByID)
+		person.PATCH("/person/update/:id", handlr.Update)
+		person.DELETE("/delete/:id", handlr.Delete)
 
+		// user Api
 		user := api.Group("/user")
-		user.GET("/login", uhandlr.Login)
+		user.POST("/login", uhandlr.Login)
 		user.POST("/signup", uhandlr.Signup)
 		user.GET("/getAll", uhandlr.GetAll, middlwr.UserIdentity())
 	}

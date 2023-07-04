@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/eugenshima/myapp/internal/model"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -29,7 +30,7 @@ func (db *PsqlConnection) GetByID(ctx context.Context, ID uuid.UUID) (*model.Per
 	query := `SELECT id, name, age, ishealthy FROM goschema.person WHERE id=$1`
 
 	// Execute a SQL query on a database
-	err := db.pool.QueryRow(ctx, query, &ID).Scan(&entity.ID, &entity.Name, &entity.Age, &entity.IsHealthy)
+	err := db.pool.QueryRow(ctx, query, ID).Scan(&entity.ID, &entity.Name, &entity.Age, &entity.IsHealthy)
 	if err != nil {
 		return nil, fmt.Errorf("error in PersonP.go GetByname() QueryRow(): %v", err) // Returning error message
 	}
@@ -61,7 +62,7 @@ func (db *PsqlConnection) GetAll(ctx context.Context) ([]model.Person, error) {
 
 // Delete function executes SQL reauest to delete row with certain uuid
 func (db *PsqlConnection) Delete(ctx context.Context, uuidString uuid.UUID) error {
-	bd, err := db.pool.Exec(ctx, "DELETE FROM goschema.person WHERE id=$1", &uuidString)
+	bd, err := db.pool.Exec(ctx, "DELETE FROM goschema.person WHERE id=$1", uuidString)
 	if err != nil && !bd.Delete() {
 		return fmt.Errorf("error deleting data from table: %v", err) // Returning error message
 	}
@@ -75,7 +76,7 @@ func (db *PsqlConnection) Create(ctx context.Context, entity *model.Person) erro
 	bd, err := db.pool.Exec(ctx,
 		`INSERT INTO goschema.person (id, name, age, ishealthy) 
 	VALUES($1,$2,$3,$4)`,
-		&entity.ID, &entity.Name, &entity.Age, &entity.IsHealthy)
+		entity.ID, entity.Name, entity.Age, entity.IsHealthy)
 
 	if err != nil && !bd.Insert() {
 		return fmt.Errorf("error deleting data into table: %v", err) // Returning error message
@@ -85,7 +86,7 @@ func (db *PsqlConnection) Create(ctx context.Context, entity *model.Person) erro
 
 // Update function executes SQL request to update person data in database
 func (db *PsqlConnection) Update(ctx context.Context, uuidString uuid.UUID, entity *model.Person) error {
-	bd, err := db.pool.Exec(ctx, "UPDATE goschema.person SET name=$1, age=$2, ishealthy=$3 WHERE id=$4", &entity.Name, &entity.Age, &entity.IsHealthy, uuidString)
+	bd, err := db.pool.Exec(ctx, "UPDATE goschema.person SET name=$1, age=$2, ishealthy=$3 WHERE id=$4", entity.Name, entity.Age, entity.IsHealthy, uuidString)
 	if err != nil && !bd.Update() {
 		return fmt.Errorf("error updating data in table: %v", err) // Returning error message
 	}

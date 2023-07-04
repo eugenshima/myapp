@@ -4,21 +4,19 @@ package service
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"time"
 
-	"github.com/caarlos0/env/v9"
 	"github.com/eugenshima/myapp/internal/config"
 	"github.com/eugenshima/myapp/internal/model"
+
 	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
 const (
-	salt            = "hjgrhjgw124617ajfhajs"
-	accessTokenTTL  = 3 * time.Minute
+	accessTokenTTL  = 15 * time.Minute
 	refreshTokenTTL = 24 * time.Hour
 )
 
@@ -48,37 +46,34 @@ type UserRepositoryPsql interface {
 	SaveRefreshToken(ctx context.Context, id uuid.UUID, token []byte) error
 }
 
-// GenerateToken implements the UserServicePsql interface
-func (db *UserServiceImpl) GenerateToken(ctx context.Context, login, password string) (string, string, error) {
-	cfg := config.Config{}
-	err := env.Parse(&cfg)
+// GenerateTokens implements the UserServicePsql interface
+func (db *UserServiceImpl) GenerateTokens(ctx context.Context, login, password string) (accessToken string, refreshToken string, err error) {
+	cfg, err := config.NewConfig()
 	if err != nil {
-		return "", "", fmt.Errorf("error parsing environment variable: %v", err)
+		return "", "", fmt.Errorf("error creating config: %v", err)
 	}
+
+	// GetUser
 	id, pass, err := db.rps.GetUser(ctx, login)
 	if err != nil {
 		return "", "", fmt.Errorf("error in GenerateToken (GetUser): %v", err)
 	}
+	// CompareHashAndPassword
 	err = bcrypt.CompareHashAndPassword(pass, []byte(password))
 	if err != nil {
 		return "", "", fmt.Errorf("error in GenerateToken (CompareHashAndPassword): %v", err)
 	}
-
-	accessToken, err := GenerateAccessToken()
+	// GenerateAccessToken
+	accessToken, refreshToken, err = GenerateAccessAndRefreshTokens(cfg.SigningKey)
 	if err != nil {
-		return "", "", fmt.Errorf("error in GenerateToken (GenerateAccessToken): %v", err)
+		return "", "", fmt.Errorf("error in GenerateToken (GenerateAccessAndRefreshTokens): %v", err)
 	}
-
-	refreshToken, err := GenerateRefreshToken()
-	if err != nil {
-		return "", "", fmt.Errorf("error in GenerateToken (GenerateRefreshToken): %v", err)
-	}
-
+	// HashRefreshToken
 	hashedRefreshToken, err := HashRefreshToken(refreshToken)
 	if err != nil {
 		return "", "", fmt.Errorf("error in refresh token: %v", err)
 	}
-
+	// SaveRefreshToken
 	err = db.rps.SaveRefreshToken(ctx, id, hashedRefreshToken)
 	if err != nil {
 		return "", "", fmt.Errorf("error in GenerateToken(SaveRefreshToken): %v", err)
@@ -98,9 +93,10 @@ func (db *UserServiceImpl) GetAll(ctx context.Context) ([]*model.User, error) {
 	return db.rps.GetAll(ctx)
 }
 
+// HashPassword func returns hashed password using bcrypt algorithm
 func hashPassword(password []byte) []byte {
 	fmt.Println(password)
-	hashedPassword, err := bcrypt.GenerateFromPassword(password, bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword(password, 14)
 
 	if err != nil {
 		return nil
@@ -108,19 +104,17 @@ func hashPassword(password []byte) []byte {
 	return hashedPassword
 }
 
+// HashRefreshToken func returns hashed refresh token using bcrypt algorithm
 func HashRefreshToken(refreshToken string) ([]byte, error) {
-	hash := sha256.New()
-	_, err := hash.Write([]byte(refreshToken))
-	if err != nil {
-		return nil, fmt.Errorf("error hashing refresh token: %v", err)
-	}
-	hashedToken := hex.EncodeToString(hash.Sum(nil))
+	sum := sha256.Sum256([]byte(refreshToken))
+	hashedRefreshToken := hashPassword(sum[:])
 
-	return []byte(hashedToken), nil
+	return hashedRefreshToken, nil
 }
 
-func RefreshAccessToken(refreshToken string) (string, error) {
-	// Проверяем валидность refresh токена
+// RefreshAccessToken func recreates access token
+func RefreshAccessToken(refreshToken string, key string) (string, error) {
+	// Refresh token validation
 	valid, err := ValidateRefreshToken(refreshToken)
 	if err != nil {
 		return "", fmt.Errorf("error validating refresh token: %v", err)
@@ -129,8 +123,8 @@ func RefreshAccessToken(refreshToken string) (string, error) {
 		return "", fmt.Errorf("invalid refresh token : %v", err)
 	}
 
-	// Генерируем новый access токен
-	accessToken, err := GenerateAccessToken()
+	// Generating new access token
+	accessToken, err := GenerateAccessToken(key)
 	if err != nil {
 		return "", fmt.Errorf("error generating access token: %v", err)
 	}
@@ -138,14 +132,47 @@ func RefreshAccessToken(refreshToken string) (string, error) {
 	return accessToken, nil
 }
 
-func ValidateRefreshToken(refreshToken string) (bool, error)
+// ValidateRefreshToken func validates refresh token
+func ValidateRefreshToken(refreshToken string) (bool, error) {
+	//TODO: validate refresh token
+	return true, nil
+}
 
-func GenerateAccessToken() (string, error) {
-	cfg := config.Config{}
-	err := env.Parse(&cfg)
+// GenerateAccessAndRefreshTokens func returns access & refresh tokens
+func GenerateAccessAndRefreshTokens(key string) (access string, refresh string, err error) {
+	id, err := uuid.NewRandom()
 	if err != nil {
-		return "", fmt.Errorf("error parsing environment variable: %v", err)
+		return "", "", fmt.Errorf("error in GenerateAccessToken (uuid.NewRandom): %v", err)
 	}
+
+	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, &tokenClaims{
+		jwt.StandardClaims{
+			ExpiresAt: time.Now().Add(accessTokenTTL).Unix(),
+			IssuedAt:  time.Now().Unix(),
+		},
+		id,
+	})
+	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, &tokenClaims{
+		jwt.StandardClaims{
+			ExpiresAt: time.Now().Add(refreshTokenTTL).Unix(),
+			IssuedAt:  time.Now().Unix(),
+		},
+		id,
+	})
+	access, err = accessToken.SignedString([]byte(key))
+	if err != nil {
+		return "", "", fmt.Errorf("error in GenerateAccessToken (accessToken.SignedString): %v", err)
+	}
+	refresh, err = refreshToken.SignedString([]byte(key))
+	if err != nil {
+		return "", "", fmt.Errorf("error in GenerateAccessToken (refreshToken.SignedString): %v", err)
+	}
+	return access, refresh, err
+}
+
+// GenerateAccessToken for signing requests
+func GenerateAccessToken(key string) (string, error) {
+
 	id, err := uuid.NewRandom()
 	if err != nil {
 		return "", fmt.Errorf("error in GenerateAccessToken (uuid.NewRandom): %v", err)
@@ -157,27 +184,6 @@ func GenerateAccessToken() (string, error) {
 		},
 		id,
 	})
-	access, err := accessToken.SignedString([]byte(cfg.SigningKey))
+	access, err := accessToken.SignedString([]byte(key))
 	return access, err
-}
-
-func GenerateRefreshToken() (string, error) {
-	cfg := config.Config{}
-	err := env.Parse(&cfg)
-	if err != nil {
-		return "", fmt.Errorf("error parsing environment variable: %v", err)
-	}
-	id, err := uuid.NewRandom()
-	if err != nil {
-		return "", fmt.Errorf("error in GenerateAccessToken (uuid.NewRandom): %v", err)
-	}
-	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, &tokenClaims{
-		jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(refreshTokenTTL).Unix(),
-			IssuedAt:  time.Now().Unix(),
-		},
-		id,
-	})
-	refresh, err := refreshToken.SignedString([]byte(cfg.SigningKey))
-	return refresh, err
 }
