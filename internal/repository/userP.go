@@ -77,3 +77,12 @@ func (db *UserPsqlConnection) SaveRefreshToken(ctx context.Context, ID uuid.UUID
 	}
 	return nil
 }
+
+func (db *UserPsqlConnection) GetRefreshToken(ctx context.Context, ID uuid.UUID) ([]byte, error) {
+	var user model.User
+	err := db.pool.QueryRow(ctx, "SELECT refreshtoken FROM goschema.user WHERE id=$1", ID).Scan(&user.RefreshToken)
+	if err != nil {
+		return nil, fmt.Errorf("error in GetRefreshToken: %v ", err)
+	}
+	return user.RefreshToken, nil
+}

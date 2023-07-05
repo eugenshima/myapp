@@ -24,3 +24,8 @@ type Signup struct {
 	Password string `json:"password"`
 	Role     string `json:"role"`
 }
+
+type Refresh struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+}

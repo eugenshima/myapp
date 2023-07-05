@@ -118,6 +118,7 @@ func main() {
 		user.POST("/login", uhandlr.Login)
 		user.POST("/signup", uhandlr.Signup)
 		user.GET("/getAll", uhandlr.GetAll, middlwr.UserIdentity())
+		user.POST("/refresh/:id", uhandlr.RefreshTokenPair)
 	}
 
 	e.Logger.Fatal(e.Start(cfg.HTTPAddr))
