@@ -3,11 +3,11 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/eugenshima/myapp/internal/model"
 
 	"github.com/google/uuid"
-	"github.com/labstack/echo/v4"
 )
 
 // PersonServiceImpl is a struct that contains a reference to the repository interface
@@ -30,26 +30,51 @@ type PersonRepositoryPsql interface {
 }
 
 // GetByID is a service function which interacts with PostgreSQL in repository level
-func (db *PersonServiceImpl) GetByID(c echo.Context, id uuid.UUID) (*model.Person, error) {
-	return db.rps.GetByID(c.Request().Context(), id)
+func (db *PersonServiceImpl) GetByID(ctx context.Context, id uuid.UUID) (*model.Person, error) {
+	return db.rps.GetByID(ctx, id)
 }
 
 // GetAll is a service function which interacts with repository level
-func (db *PersonServiceImpl) GetAll(c echo.Context) ([]model.Person, error) {
-	return db.rps.GetAll(c.Request().Context())
+func (db *PersonServiceImpl) GetAll(ctx context.Context) ([]model.Person, error) {
+	return db.rps.GetAll(ctx)
 }
 
 // Delete is a service function which interacts with repository level
-func (db *PersonServiceImpl) Delete(c echo.Context, uuidString uuid.UUID) error {
-	return db.rps.Delete(c.Request().Context(), uuidString)
+func (db *PersonServiceImpl) Delete(ctx context.Context, uuidString uuid.UUID, accessToken string) error {
+	id, role, err := GetPayloadFromToken(accessToken)
+	fmt.Println(id)
+	if err != nil {
+		return err
+	}
+	if role != "admin" {
+		return fmt.Errorf("invalid role: %v", err)
+	}
+	return db.rps.Delete(ctx, uuidString)
 }
 
 // Create is a service function which interacts with repository level
-func (db *PersonServiceImpl) Create(c echo.Context, entity *model.Person) error {
-	return db.rps.Create(c.Request().Context(), entity)
+func (db *PersonServiceImpl) Create(ctx context.Context, entity *model.Person, accessToken string) error {
+	id, role, err := GetPayloadFromToken(accessToken)
+	fmt.Println(id)
+	if err != nil {
+		return err
+	}
+	if role != "admin" {
+		return fmt.Errorf("invalid role: %v", err)
+	}
+	return db.rps.Create(ctx, entity)
 }
 
 // Update is a service function which interacts with repository level
-func (db *PersonServiceImpl) Update(c echo.Context, uuidString uuid.UUID, entity *model.Person) error {
-	return db.rps.Update(c.Request().Context(), uuidString, entity)
+func (db *PersonServiceImpl) Update(ctx context.Context, uuidString uuid.UUID, entity *model.Person, accessToken string) error {
+	id, role, err := GetPayloadFromToken(accessToken)
+	fmt.Println(id)
+	if err != nil {
+		return fmt.Errorf("error getting data from token")
+	}
+	if role != "admin" {
+		str := fmt.Errorf("invalid role: need admin")
+		return str
+	}
+	return db.rps.Update(ctx, uuidString, entity)
 }

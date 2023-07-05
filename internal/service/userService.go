@@ -4,8 +4,11 @@ package service
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/eugenshima/myapp/internal/config"
@@ -23,8 +26,8 @@ const (
 
 // tokenClaims struct contains information about the claims associated with the given token
 type tokenClaims struct {
+	Role string `json:"role"`
 	jwt.StandardClaims
-	//UserID uuid.UUID `db:"id"`
 }
 
 // UserServiceImpl is a struct that contains a reference to the repository interface
@@ -41,22 +44,23 @@ func NewUserServiceImpl(rps UserRepositoryPsql) *UserServiceImpl {
 
 // UserRepositoryPsql interface, which contains repository methods
 type UserRepositoryPsql interface {
-	GetUser(ctx context.Context, login string) (uuid.UUID, []byte, error)
+	GetUser(ctx context.Context, login string) (uuid.UUID, []byte, string, error)
 	Signup(context.Context, *model.User) error
 	GetAll(context.Context) ([]*model.User, error)
 	SaveRefreshToken(ctx context.Context, id uuid.UUID, token []byte) error
 	GetRefreshToken(ctx context.Context, id uuid.UUID) ([]byte, error)
+	GetRoleByID(ctx context.Context, id uuid.UUID) (string, error)
 }
 
 // GenerateTokens implements the UserServicePsql interface
-func (db *UserServiceImpl) GenerateTokens(ctx context.Context, login, password string) (accessToken string, refreshToken string, err error) {
+func (db *UserServiceImpl) GenerateTokens(ctx context.Context, login, password string) (accessToken, refreshToken string, err error) {
 	cfg, err := config.NewConfig()
 	if err != nil {
 		return "", "", fmt.Errorf("error creating config: %v", err)
 	}
 
 	// GetUser
-	id, pass, err := db.rps.GetUser(ctx, login)
+	id, pass, role, err := db.rps.GetUser(ctx, login)
 	if err != nil {
 		return "", "", fmt.Errorf("error in GenerateToken (GetUser): %v", err)
 	}
@@ -66,7 +70,7 @@ func (db *UserServiceImpl) GenerateTokens(ctx context.Context, login, password s
 		return "", "", fmt.Errorf("error in GenerateToken (CompareHashAndPassword): %v", err)
 	}
 	// GenerateAccessToken
-	accessToken, refreshToken, err = GenerateAccessAndRefreshTokens(cfg.SigningKey)
+	accessToken, refreshToken, err = GenerateAccessAndRefreshTokens(cfg.SigningKey, role, id)
 	if err != nil {
 		return "", "", fmt.Errorf("error in GenerateToken (GenerateAccessAndRefreshTokens): %v", err)
 	}
@@ -92,11 +96,12 @@ func (db *UserServiceImpl) GenerateTokens(ctx context.Context, login, password s
 	return accessToken, refreshToken, nil
 }
 
-func (db *UserServiceImpl) RefreshTokenPair(ctx context.Context, accessToken, refreshToken string, id uuid.UUID) (string, string, error) {
+func (db *UserServiceImpl) RefreshTokenPair(ctx context.Context, accessToken, refreshToken string, id uuid.UUID) (access, refresh string, err error) {
 	cfg, err := config.NewConfig()
 	if err != nil {
 		return "", "", fmt.Errorf("error creating config: %v", err)
 	}
+	// TODO: сравнение айдишников аксесс и рефреш токенов
 	// Get RefreshToken
 	savedRefreshToken, err := db.rps.GetRefreshToken(ctx, id)
 	if err != nil {
@@ -112,8 +117,12 @@ func (db *UserServiceImpl) RefreshTokenPair(ctx context.Context, accessToken, re
 	if !isEqual {
 		return "", "", fmt.Errorf("error compairing refresh tokens (CompareHashedTokens): %v", err)
 	}
+	id, role, err := GetPayloadFromToken(access)
+	if err != nil {
+		return "", "", fmt.Errorf("error in RefreshTokenPair (GetPayloadFromToken): %v", err)
+	}
 	// GenerateAccessAndRefreshTokens
-	access, refresh, err := GenerateAccessAndRefreshTokens(cfg.SigningKey)
+	access, refresh, err = GenerateAccessAndRefreshTokens(cfg.SigningKey, role, id)
 	if err != nil {
 		return "", "", fmt.Errorf("error generating access and refresh tokens: %v", err)
 	}
@@ -159,6 +168,7 @@ func HashRefreshToken(refreshToken string) ([]byte, error) {
 	return []byte(hashString), nil
 }
 
+// CompareHashedTokens func compairs hashed tokens from database and request
 func CompareHashedTokens(token1, token2 []byte) bool {
 	return sha256.Sum256(token1) == sha256.Sum256(token2)
 }
@@ -174,11 +184,10 @@ func CompareTokenIDs(accessToken, refreshToken, key string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("error extracting ID from refresh token: %v", err)
 	}
-	fmt.Println(accessID, "\n", refreshID)
 	return accessID == refreshID, nil
 }
 
-// ExtractIDFromAccessToken извлекает идентификатор (ID) из полезной нагрузки (claims) access токена.
+// ExtractIDFromToken extracts the identifier (ID) from the payload (claims) of the token.
 func ExtractIDFromToken(tokenString, key string) (string, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		return []byte(key), nil
@@ -197,22 +206,24 @@ func ExtractIDFromToken(tokenString, key string) (string, error) {
 }
 
 // GenerateAccessAndRefreshTokens func returns access & refresh tokens
-func GenerateAccessAndRefreshTokens(key string) (access string, refresh string, err error) {
-	id, err := uuid.NewRandom()
+func GenerateAccessAndRefreshTokens(key, role string, id uuid.UUID) (access, refresh string, err error) {
+
 	if err != nil {
 		return "", "", fmt.Errorf("error in GenerateAccessToken (uuid.NewRandom): %v", err)
 	}
 
 	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, &tokenClaims{
-		jwt.StandardClaims{
+		Role: role,
+		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(accessTokenTTL).Unix(),
 			IssuedAt:  time.Now().Unix(),
 			Id:        id.String(),
 		},
 	})
+
 	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, &tokenClaims{
-		jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(refreshTokenTTL).Unix(),
+		StandardClaims: jwt.StandardClaims{
+			ExpiresAt: time.Now().Add(accessTokenTTL).Unix(),
 			IssuedAt:  time.Now().Unix(),
 			Id:        id.String(),
 		},
@@ -225,23 +236,38 @@ func GenerateAccessAndRefreshTokens(key string) (access string, refresh string, 
 	if err != nil {
 		return "", "", fmt.Errorf("error in GenerateAccessToken (refreshToken.SignedString): %v", err)
 	}
+	id, role, err = GetPayloadFromToken(access)
+	if err != nil {
+		return "", "", fmt.Errorf("error in GenerateAccessToken (middlwr.GetPayloadFromToken): %v", err)
+	}
+	fmt.Println(role, id)
 	return access, refresh, err
 }
 
-// GenerateAccessToken for signing requests
-func GenerateAccessToken(key string) (string, error) {
+// GetPayloadFromToken returns a payload from the given token
+func GetPayloadFromToken(token string) (uuid.UUID, string, error) {
+	parts := strings.Split(token, ".")
+	payload := parts[1]
 
-	id, err := uuid.NewRandom()
+	// Декодирование Base64url полезной нагрузки в формат JSON
+	payloadBytes, err := base64.RawURLEncoding.DecodeString(payload)
 	if err != nil {
-		return "", fmt.Errorf("error in GenerateAccessToken (uuid.NewRandom): %v", err)
+		return uuid.Nil, "", fmt.Errorf("error decoding payload: %v", err)
 	}
-	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, &tokenClaims{
-		jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(accessTokenTTL).Unix(),
-			IssuedAt:  time.Now().Unix(),
-			Id:        id.String(),
-		},
-	})
-	access, err := accessToken.SignedString([]byte(key))
-	return access, err
+
+	// Распаковка полезной нагрузки в структуру CustomClaims
+	var claims tokenClaims
+	err = json.Unmarshal(payloadBytes, &claims)
+	if err != nil {
+		return uuid.Nil, "", fmt.Errorf("error decoding payload: %v", err)
+	}
+
+	// Получение значения ролей
+	role := claims.Role
+	id, err := uuid.Parse(claims.Id)
+	if err != nil {
+		return uuid.Nil, "", fmt.Errorf("error decoding payload: %v", err)
+	}
+	fmt.Println("id -->", id)
+	return id, role, nil
 }

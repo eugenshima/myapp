@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/eugenshima/myapp/internal/model"
 
@@ -24,11 +26,11 @@ func NewPersonHandler(srv PersonService) *PersonHandlerImpl {
 
 // PersonService interface, which contains Service methods
 type PersonService interface {
-	GetByID(c echo.Context, id uuid.UUID) (*model.Person, error)
-	GetAll(c echo.Context) ([]model.Person, error)
-	Delete(c echo.Context, uuidString uuid.UUID) error
-	Create(c echo.Context, entity *model.Person) error
-	Update(c echo.Context, uuidString uuid.UUID, entity *model.Person) error
+	GetByID(ctx context.Context, id uuid.UUID) (*model.Person, error)
+	GetAll(ctx context.Context) ([]model.Person, error)
+	Delete(ctx context.Context, uuidString uuid.UUID, accessToken string) error
+	Create(ctx context.Context, entity *model.Person, accessToken string) error
+	Update(ctx context.Context, uuidString uuid.UUID, entity *model.Person, accessToken string) error
 }
 
 // GetByID function receives GET request from client
@@ -38,7 +40,7 @@ func (handler *PersonHandlerImpl) GetByID(c echo.Context) error {
 		logrus.Errorf("Error parsing id: %v", err)
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	result, err := handler.srv.GetByID(c, ID)
+	result, err := handler.srv.GetByID(c.Request().Context(), ID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -51,7 +53,7 @@ func (handler *PersonHandlerImpl) GetByID(c echo.Context) error {
 
 // GetAll function receives GET request from client
 func (handler *PersonHandlerImpl) GetAll(c echo.Context) error {
-	results, err := handler.srv.GetAll(c)
+	results, err := handler.srv.GetAll(c.Request().Context())
 	if err != nil {
 		logrus.Errorf("Error in handler: %v", err)
 		return c.String(http.StatusNotFound, fmt.Sprintf("Error in handler: %v", err))
@@ -61,12 +63,26 @@ func (handler *PersonHandlerImpl) GetAll(c echo.Context) error {
 
 // Delete function receives DELETE request from client
 func (handler *PersonHandlerImpl) Delete(c echo.Context) error {
+	authHeader := c.Request().Header.Get("Authorization")
+	if authHeader == "" {
+		return echo.NewHTTPError(http.StatusUnauthorized, "Missing authorization header")
+	}
+
+	// Разбиение значения заголовка Authorization на тип и токен
+	authParts := strings.Split(authHeader, " ")
+	if len(authParts) != 2 || strings.ToLower(authParts[0]) != "bearer" {
+		// Ошибка: некорректный формат заголовка Authorization
+		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid authorization header")
+	}
+
+	// Извлечение access токена
+	accessToken := authParts[1]
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		logrus.Errorf("Error in handler: %v", err)
 		return c.String(http.StatusNotFound, fmt.Sprintf("Error in handler: %v", err))
 	}
-	err = handler.srv.Delete(c, id)
+	err = handler.srv.Delete(c.Request().Context(), id, accessToken)
 	if err != nil {
 		logrus.Errorf("Error in handler: %v", err)
 		return c.String(http.StatusNotFound, fmt.Sprintf("Error in handler: %v", err))
@@ -76,6 +92,20 @@ func (handler *PersonHandlerImpl) Delete(c echo.Context) error {
 
 // Create function receives POST request from client
 func (handler *PersonHandlerImpl) Create(c echo.Context) error {
+	authHeader := c.Request().Header.Get("Authorization")
+	if authHeader == "" {
+		return echo.NewHTTPError(http.StatusUnauthorized, "Missing authorization header")
+	}
+
+	// Разбиение значения заголовка Authorization на тип и токен
+	authParts := strings.Split(authHeader, " ")
+	if len(authParts) != 2 || strings.ToLower(authParts[0]) != "bearer" {
+		// Ошибка: некорректный формат заголовка Authorization
+		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid authorization header")
+	}
+
+	// Извлечение access токена
+	accessToken := authParts[1]
 	var entity *model.Person
 	err := c.Bind(&entity)
 	if err != nil {
@@ -89,7 +119,7 @@ func (handler *PersonHandlerImpl) Create(c echo.Context) error {
 		logrus.Errorf("error in handler: %v", err)
 		return c.String(http.StatusNotFound, fmt.Sprintf("Error in handler: %v", err))
 	}
-	err = handler.srv.Create(c, entity)
+	err = handler.srv.Create(c.Request().Context(), entity, accessToken)
 	if err != nil {
 		logrus.Errorf("Error in handler: %v", err)
 		return c.String(http.StatusNotFound, fmt.Sprintf("Error in handler: %v", err))
@@ -99,6 +129,20 @@ func (handler *PersonHandlerImpl) Create(c echo.Context) error {
 
 // Update function receives PATCH request from client
 func (handler *PersonHandlerImpl) Update(c echo.Context) error {
+	authHeader := c.Request().Header.Get("Authorization")
+	if authHeader == "" {
+		return echo.NewHTTPError(http.StatusUnauthorized, "Missing authorization header")
+	}
+
+	// Разбиение значения заголовка Authorization на тип и токен
+	authParts := strings.Split(authHeader, " ")
+	if len(authParts) != 2 || strings.ToLower(authParts[0]) != "bearer" {
+		// Ошибка: некорректный формат заголовка Authorization
+		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid authorization header")
+	}
+
+	// Извлечение access токена
+	accessToken := authParts[1]
 	var entity *model.Person
 	err := c.Bind(&entity)
 	if err != nil {
@@ -115,7 +159,7 @@ func (handler *PersonHandlerImpl) Update(c echo.Context) error {
 		logrus.Errorf("error in handler: %v", err)
 		return c.String(http.StatusNotFound, fmt.Sprintf("Error in handler: %v", err))
 	}
-	err = handler.srv.Update(c, id, entity)
+	err = handler.srv.Update(c.Request().Context(), id, entity, accessToken)
 	if err != nil {
 		logrus.Errorf("Error in handler: %v", err)
 		return c.String(http.StatusNotFound, fmt.Sprintf("Error in handler: %v", err))

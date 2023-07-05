@@ -25,7 +25,8 @@ type Signup struct {
 	Role     string `json:"role"`
 }
 
-type Refresh struct {
+// Tokens struct for tokens
+type Tokens struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 }

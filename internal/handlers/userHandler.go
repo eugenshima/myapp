@@ -90,21 +90,21 @@ func (handler *UserHandlerImpl) Signup(c echo.Context) error {
 func (handler *UserHandlerImpl) GetAll(c echo.Context) error {
 	results, err := handler.srv.GetAll(c.Request().Context())
 	if err != nil {
-		str := fmt.Sprintf("Error in userHandler: %v", err)
-		return c.String(http.StatusNotFound, str)
+		logrus.Errorf("error calling GetAll method: %v", err)
+		return c.String(http.StatusNotFound, fmt.Sprintf("Error in userHandler: %v", err))
 	}
 	return c.JSON(http.StatusOK, results)
 }
 
+// RefreshTokenPair receives a POST request from client for refreshing a token pair
 func (handler *UserHandlerImpl) RefreshTokenPair(c echo.Context) error {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		logrus.Errorf("error calling RefreshTokenPair method: %v", err)
 		return c.String(http.StatusBadRequest, fmt.Sprintf("Error in userHandler: %v", err))
 	}
-	reqBody := model.Refresh{}
+	reqBody := model.Tokens{}
 	err = c.Bind(&reqBody)
-	fmt.Println(reqBody.RefreshToken)
 	if err != nil {
 		logrus.Errorf("error calling RefreshTokenPair method: %v", err)
 		return c.String(http.StatusNotFound, fmt.Sprintf("Error in userHandler: %v", err))

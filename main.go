@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 
-	cfg "github.com/eugenshima/myapp/internal/config"
+	cfgrtn "github.com/eugenshima/myapp/internal/config"
 	"github.com/eugenshima/myapp/internal/handlers"
 	middlwr "github.com/eugenshima/myapp/internal/middleware"
 	"github.com/eugenshima/myapp/internal/repository"
@@ -60,7 +60,7 @@ func NewDBPsql(env string) (*pgxpool.Pool, error) {
 func main() {
 	e := echo.New()
 
-	cfg, err := cfg.NewConfig()
+	cfg, err := cfgrtn.NewConfig()
 	if err != nil {
 		fmt.Printf("Error extracting env variables: %v", err)
 		return

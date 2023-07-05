@@ -24,13 +24,13 @@ func NewUserPsqlConnection(pool *pgxpool.Pool) *UserPsqlConnection {
 }
 
 // GetUser function executes a query, which select all rows from user table
-func (db *UserPsqlConnection) GetUser(ctx context.Context, login string) (uuid.UUID, []byte, error) {
+func (db *UserPsqlConnection) GetUser(ctx context.Context, login string) (uuid.UUID, []byte, string, error) {
 	var user model.User
-	err := db.pool.QueryRow(ctx, "SELECT id, password FROM goschema.user WHERE login = $1", login).Scan(&user.ID, &user.Password)
+	err := db.pool.QueryRow(ctx, "SELECT id, password, role FROM goschema.user WHERE login = $1", login).Scan(&user.ID, &user.Password, &user.Role)
 	if err != nil {
-		return uuid.Nil, nil, fmt.Errorf("error executing query: %v", err)
+		return uuid.Nil, nil, "", fmt.Errorf("error executing query: %v", err)
 	}
-	return user.ID, user.Password, nil
+	return user.ID, user.Password, user.Role, nil
 }
 
 // Signup function executes a query, which insert a user to user table
@@ -78,6 +78,7 @@ func (db *UserPsqlConnection) SaveRefreshToken(ctx context.Context, ID uuid.UUID
 	return nil
 }
 
+// GetRefreshToken returns a refresh token for the given user
 func (db *UserPsqlConnection) GetRefreshToken(ctx context.Context, ID uuid.UUID) ([]byte, error) {
 	var user model.User
 	err := db.pool.QueryRow(ctx, "SELECT refreshtoken FROM goschema.user WHERE id=$1", ID).Scan(&user.RefreshToken)
@@ -85,4 +86,13 @@ func (db *UserPsqlConnection) GetRefreshToken(ctx context.Context, ID uuid.UUID)
 		return nil, fmt.Errorf("error in GetRefreshToken: %v ", err)
 	}
 	return user.RefreshToken, nil
+}
+
+func (db *UserPsqlConnection) GetRoleByID(ctx context.Context, ID uuid.UUID) (string, error) {
+	var user model.User
+	err := db.pool.QueryRow(ctx, "SELECT role FROM goschema.user WHERE id=$1", ID).Scan(&user.Role)
+	if err != nil {
+		return "", fmt.Errorf("error in GetRoleByID: %v ", err)
+	}
+	return user.Role, nil
 }

@@ -2,6 +2,8 @@
 package middleware
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -13,6 +15,11 @@ import (
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 )
+
+type tokenClaims struct {
+	Role string `json:"role"`
+	jwt.StandardClaims
+}
 
 // UserIdentity makes an authorization through access token
 func UserIdentity() echo.MiddlewareFunc {
@@ -39,6 +46,16 @@ func UserIdentity() echo.MiddlewareFunc {
 			if err != nil || !token.Valid {
 				return echo.NewHTTPError(http.StatusUnauthorized, "Invalid token")
 			}
+
+			// checking for valid role
+			// role, err := RoleValidation(headerParts[1])
+			// if err != nil {
+			// 	return echo.NewHTTPError(http.StatusUnauthorized, "Invalid role")
+			// }
+			// if !role {
+			// 	return echo.NewHTTPError(http.StatusUnauthorized, "Invalid role")
+			// }
+
 			// checking for token expiration
 			if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 				exp := claims["exp"].(float64)
@@ -49,6 +66,32 @@ func UserIdentity() echo.MiddlewareFunc {
 			return next(c)
 		}
 	}
+}
+
+func RoleValidation(tokenString string) (bool, error) {
+	parts := strings.Split(tokenString, ".")
+	payload := parts[1]
+
+	// Декодирование Base64url полезной нагрузки в формат JSON
+	payloadBytes, err := base64.RawURLEncoding.DecodeString(payload)
+	if err != nil {
+		return false, fmt.Errorf("error decoding payload: %v", err)
+	}
+
+	// Распаковка полезной нагрузки в структуру CustomClaims
+	var claims tokenClaims
+	err = json.Unmarshal(payloadBytes, &claims)
+	if err != nil {
+		return false, fmt.Errorf("error decoding payload: %v", err)
+	}
+
+	// Получение значения ролей
+	role := claims.Role
+	if role != "admin" {
+		return false, fmt.Errorf("invalid role(need admin for this request): %v", err)
+	}
+	fmt.Println(role)
+	return true, nil
 }
 
 // ValidateToken parses tokenString and returns valid jwt token string
