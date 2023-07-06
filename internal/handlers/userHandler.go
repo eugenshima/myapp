@@ -4,7 +4,10 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/eugenshima/myapp/internal/model"
 
@@ -120,4 +123,53 @@ func (handler *UserHandlerImpl) RefreshTokenPair(c echo.Context) error {
 		"refresh_token": refreshToken,
 	}
 	return c.JSON(http.StatusOK, response)
+}
+
+type image struct {
+	Filename string `json:"filename"`
+	Url      string `json:"url"`
+}
+
+func (handler *UserHandlerImpl) GetImage(c echo.Context) error {
+	image := c.Param("name")
+	filePath := "/home/yauhenishymanski/MyProject/myapp/internal/images/" + image
+	// src, err := os.Open(filePath)
+	// if err != nil {
+	// 	logrus.Errorf("error calling GetImage method: %v", err)
+	// 	return c.String(http.StatusNotFound, fmt.Sprintf("Error in userHandler: %v", err))
+	// }
+	// defer src.Close()
+
+	return c.Inline(filePath, image)
+}
+
+// SetImage saves the image from the internet
+func (handler *UserHandlerImpl) SetImage(c echo.Context) error {
+	img := image{}
+	err := c.Bind(&img)
+	if err != nil {
+		logrus.Errorf("error in handler: %v", err)
+		return c.String(http.StatusBadRequest, fmt.Sprintf("Error in handler: %v", err))
+	}
+	response, err := http.Get(img.Url)
+	if err != nil {
+		logrus.Errorf("error in handler: %v", err)
+		return c.String(http.StatusBadRequest, fmt.Sprintf("Error in handler: %v", err))
+	}
+	defer response.Body.Close()
+
+	filename := filepath.Join("/home/yauhenishymanski/MyProject/myapp/internal/images", img.Filename)
+	file, err := os.Create(filename)
+	if err != nil {
+		logrus.Errorf("error in handler: %v", err)
+		return c.String(http.StatusBadRequest, fmt.Sprintf("Error in handler: %v", err))
+	}
+	defer file.Close()
+
+	_, err = io.Copy(file, response.Body)
+	if err != nil {
+		logrus.Errorf("error in handler: %v", err)
+		return c.String(http.StatusBadRequest, fmt.Sprintf("Error in handler: %v", err))
+	}
+	return c.String(http.StatusOK, "image has been set")
 }

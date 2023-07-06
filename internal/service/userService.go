@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	accessTokenTTL  = 5 * time.Minute
-	refreshTokenTTL = 24 * time.Hour
+	accessTokenTTL  = 1 * time.Hour
+	refreshTokenTTL = 72 * time.Hour
 )
 
 // tokenClaims struct contains information about the claims associated with the given token
@@ -101,7 +101,6 @@ func (db *UserServiceImpl) RefreshTokenPair(ctx context.Context, accessToken, re
 	if err != nil {
 		return "", "", fmt.Errorf("error creating config: %v", err)
 	}
-	// TODO: сравнение айдишников аксесс и рефреш токенов
 	// Get RefreshToken
 	savedRefreshToken, err := db.rps.GetRefreshToken(ctx, id)
 	if err != nil {
@@ -223,7 +222,7 @@ func GenerateAccessAndRefreshTokens(key, role string, id uuid.UUID) (access, ref
 
 	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, &tokenClaims{
 		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(accessTokenTTL).Unix(),
+			ExpiresAt: time.Now().Add(refreshTokenTTL).Unix(),
 			IssuedAt:  time.Now().Unix(),
 			Id:        id.String(),
 		},

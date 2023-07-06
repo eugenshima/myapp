@@ -70,7 +70,7 @@ func (handler *PersonHandlerImpl) Delete(c echo.Context) error {
 
 	// Разбиение значения заголовка Authorization на тип и токен
 	authParts := strings.Split(authHeader, " ")
-	if len(authParts) != 2 || strings.ToLower(authParts[0]) != "bearer" {
+	if len(authParts) != 2 || strings.EqualFold(authParts[0], "bearer") {
 		// Ошибка: некорректный формат заголовка Authorization
 		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid authorization header")
 	}
@@ -97,14 +97,11 @@ func (handler *PersonHandlerImpl) Create(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Missing authorization header")
 	}
 
-	// Разбиение значения заголовка Authorization на тип и токен
 	authParts := strings.Split(authHeader, " ")
-	if len(authParts) != 2 || strings.ToLower(authParts[0]) != "bearer" {
-		// Ошибка: некорректный формат заголовка Authorization
+	if len(authParts) != 2 || strings.EqualFold(authParts[0], "bearer") {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid authorization header")
 	}
 
-	// Извлечение access токена
 	accessToken := authParts[1]
 	var entity *model.Person
 	err := c.Bind(&entity)
@@ -134,14 +131,11 @@ func (handler *PersonHandlerImpl) Update(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Missing authorization header")
 	}
 
-	// Разбиение значения заголовка Authorization на тип и токен
 	authParts := strings.Split(authHeader, " ")
-	if len(authParts) != 2 || strings.ToLower(authParts[0]) != "bearer" {
-		// Ошибка: некорректный формат заголовка Authorization
+	if len(authParts) != 2 || !strings.EqualFold(authParts[0], "bearer") {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Invalid authorization header")
 	}
 
-	// Извлечение access токена
 	accessToken := authParts[1]
 	var entity *model.Person
 	err := c.Bind(&entity)

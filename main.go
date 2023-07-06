@@ -119,6 +119,13 @@ func main() {
 		user.POST("/signup", uhandlr.Signup)
 		user.GET("/getAll", uhandlr.GetAll, middlwr.UserIdentity())
 		user.POST("/refresh/:id", uhandlr.RefreshTokenPair)
+
+		// // Image requests
+		image := api.Group("/image")
+		image.GET("/get/:name", uhandlr.GetImage)
+		image.POST("/set", uhandlr.SetImage)
+
+		e.Static("/static", "internal/images")
 	}
 
 	e.Logger.Fatal(e.Start(cfg.HTTPAddr))

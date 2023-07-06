@@ -29,6 +29,10 @@ type PersonRepositoryPsql interface {
 	Update(ctx context.Context, uuidString uuid.UUID, entity *model.Person) error
 }
 
+const (
+	admin = "admin"
+)
+
 // GetByID is a service function which interacts with PostgreSQL in repository level
 func (db *PersonServiceImpl) GetByID(ctx context.Context, id uuid.UUID) (*model.Person, error) {
 	return db.rps.GetByID(ctx, id)
@@ -46,7 +50,7 @@ func (db *PersonServiceImpl) Delete(ctx context.Context, uuidString uuid.UUID, a
 	if err != nil {
 		return err
 	}
-	if role != "admin" {
+	if role != admin {
 		return fmt.Errorf("invalid role: %v", err)
 	}
 	return db.rps.Delete(ctx, uuidString)
@@ -59,7 +63,7 @@ func (db *PersonServiceImpl) Create(ctx context.Context, entity *model.Person, a
 	if err != nil {
 		return err
 	}
-	if role != "admin" {
+	if role != admin {
 		return fmt.Errorf("invalid role: %v", err)
 	}
 	return db.rps.Create(ctx, entity)
@@ -72,7 +76,7 @@ func (db *PersonServiceImpl) Update(ctx context.Context, uuidString uuid.UUID, e
 	if err != nil {
 		return fmt.Errorf("error getting data from token")
 	}
-	if role != "admin" {
+	if role != admin {
 		str := fmt.Errorf("invalid role: need admin")
 		return str
 	}
