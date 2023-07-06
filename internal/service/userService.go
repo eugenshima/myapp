@@ -4,14 +4,12 @@ package service
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/eugenshima/myapp/internal/config"
+	mdlwr "github.com/eugenshima/myapp/internal/middleware"
 	"github.com/eugenshima/myapp/internal/model"
 
 	"github.com/golang-jwt/jwt"
@@ -116,7 +114,7 @@ func (db *UserServiceImpl) RefreshTokenPair(ctx context.Context, accessToken, re
 	if !isEqual {
 		return "", "", fmt.Errorf("error compairing refresh tokens (CompareHashedTokens): %v", err)
 	}
-	id, role, err := GetPayloadFromToken(access)
+	id, role, err := mdlwr.GetPayloadFromToken(access)
 	if err != nil {
 		return "", "", fmt.Errorf("error in RefreshTokenPair (GetPayloadFromToken): %v", err)
 	}
@@ -235,38 +233,10 @@ func GenerateAccessAndRefreshTokens(key, role string, id uuid.UUID) (access, ref
 	if err != nil {
 		return "", "", fmt.Errorf("error in GenerateAccessToken (refreshToken.SignedString): %v", err)
 	}
-	id, role, err = GetPayloadFromToken(access)
+	id, role, err = mdlwr.GetPayloadFromToken(access)
 	if err != nil {
 		return "", "", fmt.Errorf("error in GenerateAccessToken (middlwr.GetPayloadFromToken): %v", err)
 	}
 	fmt.Println(role, id)
 	return access, refresh, err
-}
-
-// GetPayloadFromToken returns a payload from the given token
-func GetPayloadFromToken(token string) (uuid.UUID, string, error) {
-	parts := strings.Split(token, ".")
-	payload := parts[1]
-
-	// Декодирование Base64url полезной нагрузки в формат JSON
-	payloadBytes, err := base64.RawURLEncoding.DecodeString(payload)
-	if err != nil {
-		return uuid.Nil, "", fmt.Errorf("error decoding payload: %v", err)
-	}
-
-	// Распаковка полезной нагрузки в структуру CustomClaims
-	var claims tokenClaims
-	err = json.Unmarshal(payloadBytes, &claims)
-	if err != nil {
-		return uuid.Nil, "", fmt.Errorf("error decoding payload: %v", err)
-	}
-
-	// Получение значения ролей
-	role := claims.Role
-	id, err := uuid.Parse(claims.Id)
-	if err != nil {
-		return uuid.Nil, "", fmt.Errorf("error decoding payload: %v", err)
-	}
-	fmt.Println("id -->", id)
-	return id, role, nil
 }

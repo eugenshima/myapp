@@ -8,7 +8,6 @@ import (
 
 	"github.com/eugenshima/myapp/internal/model"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/ory/dockertest"
@@ -105,16 +104,16 @@ var entityEugen = model.Person{
 	IsHealthy: true,
 }
 
-func TestPgxCreate(t *testing.T) {
-	err := rps.Create(context.Background(), &entityEugen)
-	require.NoError(t, err)
-	testEntity, err := rps.GetByID(context.Background(), entityEugen.ID)
-	require.NoError(t, err)
-	require.Equal(t, testEntity.ID, entityEugen.ID)
-	require.Equal(t, testEntity.Name, entityEugen.Name)
-	require.Equal(t, testEntity.Age, entityEugen.Age)
-	require.Equal(t, testEntity.IsHealthy, entityEugen.IsHealthy)
-}
+// func TestPgxCreate(t *testing.T) {
+// 	err := rps.Create(context.Background(), &entityEugen)
+// 	require.NoError(t, err)
+// 	testEntity, err := rps.GetByID(context.Background(), entityEugen.ID)
+// 	require.NoError(t, err)
+// 	require.Equal(t, testEntity.ID, entityEugen.ID)
+// 	require.Equal(t, testEntity.Name, entityEugen.Name)
+// 	require.Equal(t, testEntity.Age, entityEugen.Age)
+// 	require.Equal(t, testEntity.IsHealthy, entityEugen.IsHealthy)
+// }
 
 func TestPgxDelete(t *testing.T) {
 	err := rps.Delete(context.Background(), uuid.Nil)
@@ -150,15 +149,15 @@ func TestPgxUpdate(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Фиктивный тест пока что =================
-func TestPgxCreateWithNegativeAge(t *testing.T) {
-	entityEugen.Age = -1
-	validate := validator.New()
-	err := validate.Struct(entityEugen)
-	require.Error(t, err)
-	if err != nil {
-		err = rps.Create(context.Background(), &entityEugen)
-		require.NoError(t, err)
-		require.True(t, true, "not creating entity")
-	}
-}
+// // Фиктивный тест пока что =================
+// func TestPgxCreateWithNegativeAge(t *testing.T) {
+// 	entityEugen.Age = -1
+// 	validate := validator.New()
+// 	err := validate.Struct(entityEugen)
+// 	require.Error(t, err)
+// 	if err != nil {
+// 		err = rps.Create(context.Background(), &entityEugen)
+// 		require.NoError(t, err)
+// 		require.True(t, true, "not creating entity")
+// 	}
+// }

@@ -133,13 +133,6 @@ type image struct {
 func (handler *UserHandlerImpl) GetImage(c echo.Context) error {
 	image := c.Param("name")
 	filePath := "/home/yauhenishymanski/MyProject/myapp/internal/images/" + image
-	// src, err := os.Open(filePath)
-	// if err != nil {
-	// 	logrus.Errorf("error calling GetImage method: %v", err)
-	// 	return c.String(http.StatusNotFound, fmt.Sprintf("Error in userHandler: %v", err))
-	// }
-	// defer src.Close()
-
 	return c.Inline(filePath, image)
 }
 

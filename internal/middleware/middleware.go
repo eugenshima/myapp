@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/eugenshima/myapp/internal/config"
+	"github.com/google/uuid"
 
 	"github.com/caarlos0/env/v9"
 	"github.com/golang-jwt/jwt"
@@ -46,16 +47,51 @@ func UserIdentity() echo.MiddlewareFunc {
 			if err != nil || !token.Valid {
 				return echo.NewHTTPError(http.StatusUnauthorized, "Invalid token")
 			}
+			// checking for token expiration
+			if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+				exp := claims["exp"].(float64)
+				if exp < float64(time.Now().Unix()) {
+					return echo.NewHTTPError(http.StatusUnauthorized, "Token is expired")
+				}
+			}
+			return next(c)
+		}
+	}
+}
 
-			// checking for valid role
-			// role, err := RoleValidation(headerParts[1])
-			// if err != nil {
-			// 	return echo.NewHTTPError(http.StatusUnauthorized, "Invalid role")
-			// }
-			// if !role {
-			// 	return echo.NewHTTPError(http.StatusUnauthorized, "Invalid role")
-			// }
-
+// UserIdentity makes an authorization through access token
+func AdminIdentity() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			// Chtcking for auth header
+			authHeader := c.Request().Header.Get("Authorization")
+			if authHeader == "" {
+				return echo.NewHTTPError(http.StatusUnauthorized, "Missing authorization header")
+			}
+			// checking for auth header format
+			headerParts := strings.Split(authHeader, " ")
+			if len(headerParts) != 2 || headerParts[0] != "Bearer" {
+				return echo.NewHTTPError(http.StatusUnauthorized, "Invalid authorization header format")
+			}
+			// getting environment variable
+			cfg := config.Config{}
+			err := env.Parse(&cfg)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusUnauthorized, "Invalid env variable")
+			}
+			// checking for valid access token
+			token, err := ValidateToken(headerParts[1], cfg.SigningKey)
+			if err != nil || !token.Valid {
+				return echo.NewHTTPError(http.StatusUnauthorized, "Invalid token")
+			}
+			id, role, err := GetPayloadFromToken(headerParts[1])
+			fmt.Println(id)
+			if err != nil {
+				return err
+			}
+			if role != "admin" {
+				return echo.NewHTTPError(http.StatusUnauthorized, "Invalid role")
+			}
 			// checking for token expiration
 			if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 				exp := claims["exp"].(float64)
@@ -72,20 +108,17 @@ func RoleValidation(tokenString string) (bool, error) {
 	parts := strings.Split(tokenString, ".")
 	payload := parts[1]
 
-	// Декодирование Base64url полезной нагрузки в формат JSON
 	payloadBytes, err := base64.RawURLEncoding.DecodeString(payload)
 	if err != nil {
 		return false, fmt.Errorf("error decoding payload: %v", err)
 	}
 
-	// Распаковка полезной нагрузки в структуру CustomClaims
 	var claims tokenClaims
 	err = json.Unmarshal(payloadBytes, &claims)
 	if err != nil {
 		return false, fmt.Errorf("error decoding payload: %v", err)
 	}
 
-	// Получение значения ролей
 	role := claims.Role
 	if role != "admin" {
 		return false, fmt.Errorf("invalid role(need admin for this request): %v", err)
@@ -106,4 +139,32 @@ func ValidateToken(tokenString, signingKey string) (*jwt.Token, error) {
 		return nil, err
 	}
 	return token, nil
+}
+
+// GetPayloadFromToken returns a payload from the given token
+func GetPayloadFromToken(token string) (uuid.UUID, string, error) {
+	parts := strings.Split(token, ".")
+	payload := parts[1]
+
+	// Декодирование Base64url полезной нагрузки в формат JSON
+	payloadBytes, err := base64.RawURLEncoding.DecodeString(payload)
+	if err != nil {
+		return uuid.Nil, "", fmt.Errorf("error decoding payload: %v", err)
+	}
+
+	// Распаковка полезной нагрузки в структуру CustomClaims
+	var claims tokenClaims
+	err = json.Unmarshal(payloadBytes, &claims)
+	if err != nil {
+		return uuid.Nil, "", fmt.Errorf("error decoding payload: %v", err)
+	}
+
+	// Получение значения ролей
+	role := claims.Role
+	id, err := uuid.Parse(claims.Id)
+	if err != nil {
+		return uuid.Nil, "", fmt.Errorf("error decoding payload: %v", err)
+	}
+	fmt.Println("id -->", id)
+	return id, role, nil
 }

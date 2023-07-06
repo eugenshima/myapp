@@ -48,13 +48,13 @@ func (db *MongoDBConnection) Delete(ctx context.Context, uuidString uuid.UUID) e
 }
 
 // Create function executes "db.person.insertOne()" command
-func (db *MongoDBConnection) Create(ctx context.Context, entity *model.Person) error {
+func (db *MongoDBConnection) Create(ctx context.Context, entity *model.Person) (uuid.UUID, error) {
 	collection := db.client.Database("my_mongo_base").Collection("person")
 	_, err := collection.InsertOne(ctx, entity)
 	if err != nil {
-		return fmt.Errorf("InsertOne error: %w", err)
+		return uuid.Nil, fmt.Errorf("InsertOne error: %w", err)
 	}
-	return nil
+	return entity.ID, nil
 }
 
 // GetByID function executes "db.person.FindOne()" command

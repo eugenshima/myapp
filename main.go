@@ -10,6 +10,7 @@ import (
 	middlwr "github.com/eugenshima/myapp/internal/middleware"
 	"github.com/eugenshima/myapp/internal/repository"
 	"github.com/eugenshima/myapp/internal/service"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/labstack/echo/v4"
@@ -51,9 +52,21 @@ func NewDBPsql(env string) (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("error connection to PostgreSQL: %v", err)
 	}
 	// Output to console
-	fmt.Println("Connection to PostgreSQL successful")
+	fmt.Println("Connected to PostgreSQL!")
 
 	return pool, nil
+}
+
+func NewDBRedis() (*redis.Client, error) {
+	opt, err := redis.ParseURL("redis://:@localhost:6379/1")
+	if err != nil {
+
+		return nil, fmt.Errorf("error parsing redis: %v", err)
+	}
+
+	fmt.Println("Connected to redis!")
+	rdb := redis.NewClient(opt)
+	return rdb, nil
 }
 
 // Main - entry point
@@ -66,7 +79,7 @@ func main() {
 		return
 	}
 
-	ch := 1
+	ch := "pgx"
 
 	// Initializing the Database Connector (MongoDB)
 	client, err := NewMongo(cfg.MongoDBAddr)
@@ -80,20 +93,27 @@ func main() {
 		fmt.Printf("Error creating database connection with PostgreSQL: %v", err)
 		return
 	}
+	rdbClient, err := NewDBRedis()
+	if err != nil {
+		fmt.Printf("Error creating database connection with Redis: %v", err)
+		return
+	}
 	var handlr *handlers.PersonHandlerImpl
 	var uhandlr *handlers.UserHandlerImpl
 	switch ch {
-	case 2:
+	case "mongo":
 
 		// Person db mongodb
 		rps := repository.NewMongoDBConnection(client)
-		srv := service.NewPersonService(rps)
+		rdb := repository.NewRedisConnection(rdbClient)
+		srv := service.NewPersonService(rps, rdb)
 		handlr = handlers.NewPersonHandler(srv)
 
-	default:
+	case "pgx":
 		// Person db pgx
 		rps := repository.NewPsqlConnection(pool)
-		srv := service.NewPersonService(rps)
+		rdb := repository.NewRedisConnection(rdbClient)
+		srv := service.NewPersonService(rps, rdb)
 		handlr = handlers.NewPersonHandler(srv)
 
 		// User db pgx
@@ -106,26 +126,23 @@ func main() {
 	{
 		// Person Api
 		person := api.Group("/person")
-		person.Use(middlwr.UserIdentity())
-		person.POST("/insert", handlr.Create)
-		person.GET("/getAll", handlr.GetAll)
-		person.GET("/getById/:id", handlr.GetByID)
-		person.PATCH("/person/update/:id", handlr.Update)
-		person.DELETE("/delete/:id", handlr.Delete)
+		person.POST("/insert", handlr.Create, middlwr.AdminIdentity())
+		person.GET("/getAll", handlr.GetAll, middlwr.UserIdentity())
+		person.GET("/getById/:id", handlr.GetByID, middlwr.UserIdentity())
+		person.PATCH("/person/update/:id", handlr.Update, middlwr.AdminIdentity())
+		person.DELETE("/delete/:id", handlr.Delete, middlwr.AdminIdentity())
 
-		// user Api
+		// User Api
 		user := api.Group("/user")
 		user.POST("/login", uhandlr.Login)
 		user.POST("/signup", uhandlr.Signup)
 		user.GET("/getAll", uhandlr.GetAll, middlwr.UserIdentity())
 		user.POST("/refresh/:id", uhandlr.RefreshTokenPair)
 
-		// // Image requests
+		// Image requests
 		image := api.Group("/image")
 		image.GET("/get/:name", uhandlr.GetImage)
 		image.POST("/set", uhandlr.SetImage)
-
-		e.Static("/static", "internal/images")
 	}
 
 	e.Logger.Fatal(e.Start(cfg.HTTPAddr))

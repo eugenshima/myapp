@@ -70,7 +70,7 @@ func (db *PsqlConnection) Delete(ctx context.Context, uuidString uuid.UUID) erro
 }
 
 // Create function executes SQL request to insert person into database
-func (db *PsqlConnection) Create(ctx context.Context, entity *model.Person) error {
+func (db *PsqlConnection) Create(ctx context.Context, entity *model.Person) (uuid.UUID, error) {
 	entity.ID = uuid.New()
 
 	bd, err := db.pool.Exec(ctx,
@@ -79,9 +79,9 @@ func (db *PsqlConnection) Create(ctx context.Context, entity *model.Person) erro
 		entity.ID, entity.Name, entity.Age, entity.IsHealthy)
 
 	if err != nil && !bd.Insert() {
-		return fmt.Errorf("error deleting data into table: %v", err) // Returning error message
+		return uuid.Nil, fmt.Errorf("error deleting data into table: %v", err) // Returning error message
 	}
-	return nil
+	return entity.ID, nil
 }
 
 // Update function executes SQL request to update person data in database
