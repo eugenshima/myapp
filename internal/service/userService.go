@@ -114,7 +114,7 @@ func (db *UserServiceImpl) RefreshTokenPair(ctx context.Context, accessToken, re
 	if !isEqual {
 		return "", "", fmt.Errorf("error compairing refresh tokens (CompareHashedTokens): %v", err)
 	}
-	id, role, err := mdlwr.GetPayloadFromToken(access)
+	id, role, err := mdlwr.GetPayloadFromToken(accessToken)
 	if err != nil {
 		return "", "", fmt.Errorf("error in RefreshTokenPair (GetPayloadFromToken): %v", err)
 	}

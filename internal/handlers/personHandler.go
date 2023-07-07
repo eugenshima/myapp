@@ -32,7 +32,17 @@ type PersonService interface {
 	Update(ctx context.Context, uuidString uuid.UUID, entity *model.Person) error
 }
 
-// GetByID function receives GET request from client
+// Create function receives Get request from client
+// @Summary Get person by ID
+// @Security ApiKeyAuth
+// @Tags Person CRUD
+// @Description Retrieves a person by ID
+// @Produce json
+// @Param id path string true "ID of the person"
+// @Success 200 {object} model.Person "Person object"
+// @Failure 400 {string} string "Bad request"
+// @Failure 404 {string} string "Person not found"
+// @Router /api/person/getById/{id} [get]
 func (handler *PersonHandlerImpl) GetByID(c echo.Context) error {
 	ID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -51,6 +61,14 @@ func (handler *PersonHandlerImpl) GetByID(c echo.Context) error {
 }
 
 // GetAll function receives GET request from client
+// @Summary Get All
+// @Security ApiKeyAuth
+// @Tags Person CRUD
+// @Description Get All ^ :)
+// @Produce json
+// @Failure 400 {string} string "Bad request"
+// @Failure 404 {string} string "Person not found"
+// @Router /api/person/getAll [get]
 func (handler *PersonHandlerImpl) GetAll(c echo.Context) error {
 	results, err := handler.srv.GetAll(c.Request().Context())
 	if err != nil {
@@ -61,6 +79,17 @@ func (handler *PersonHandlerImpl) GetAll(c echo.Context) error {
 }
 
 // Delete function receives DELETE request from client
+// @Summary Delete Person
+// @Security ApiKeyAuth
+// @Tags Person CRUD
+// @Description Delete person from database by ID
+// @Accept json
+// @Produce json
+// @Param id path string true "ID of the person"
+// @Success 200 {object} model.Person "Person object"
+// @Failure 400 {string} string "Bad request"
+// @Failure 404 {string} string "Person not found"
+// @Router /api/person/delete/{id} [delete]
 func (handler *PersonHandlerImpl) Delete(c echo.Context) error {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -76,6 +105,17 @@ func (handler *PersonHandlerImpl) Delete(c echo.Context) error {
 }
 
 // Create function receives POST request from client
+// @Summary Create person
+// @Security ApiKeyAuth
+// @Tags Person CRUD
+// @Description Creates a new person
+// @Accept json
+// @Produce json
+// @Param entity body model.Person true "Person object to be created"
+// @Success 200 {string} string "ID of the created person"
+// @Failure 400 {string} string "Bad request"
+// @Failure 404 {string} string "Error message"
+// @Router /api/person/insert [post]
 func (handler *PersonHandlerImpl) Create(c echo.Context) error {
 	var entity *model.Person
 	err := c.Bind(&entity)
@@ -99,6 +139,18 @@ func (handler *PersonHandlerImpl) Create(c echo.Context) error {
 }
 
 // Update function receives PATCH request from client
+// @Summary Update person's information
+// @Security ApiKeyAuth
+// @Tags Person CRUD
+// @Description updates person
+// @Accept json
+// @Produce json
+// @Param id path string true "ID of the person"
+// @Param entity body model.Person true "Updated person data"
+// @Success 200 {string} string "ID of the created person"
+// @Failure 400 {string} string "Bad request"
+// @Failure 404 {string} string "Error message"
+// @Router /api/person/update/{id} [patch]
 func (handler *PersonHandlerImpl) Update(c echo.Context) error {
 	var entity *model.Person
 	err := c.Bind(&entity)

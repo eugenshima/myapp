@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 
+	_ "github.com/eugenshima/myapp/docs"
 	cfgrtn "github.com/eugenshima/myapp/internal/config"
 	"github.com/eugenshima/myapp/internal/handlers"
 	middlwr "github.com/eugenshima/myapp/internal/middleware"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/labstack/echo/v4"
+	echoSwagger "github.com/swaggo/echo-swagger"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -69,7 +71,16 @@ func NewDBRedis() (*redis.Client, error) {
 	return rdb, nil
 }
 
-// Main - entry point
+// @title Golang Web Service
+// @version 1.0
+// @description This is my golang server.
+
+// @host localhost:8080
+// @BasePath /
+
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name Authorization
 func main() {
 	e := echo.New()
 
@@ -129,21 +140,23 @@ func main() {
 		person.POST("/insert", handlr.Create, middlwr.AdminIdentity())
 		person.GET("/getAll", handlr.GetAll, middlwr.UserIdentity())
 		person.GET("/getById/:id", handlr.GetByID, middlwr.UserIdentity())
-		person.PATCH("/person/update/:id", handlr.Update, middlwr.AdminIdentity())
+		person.PATCH("/update/:id", handlr.Update, middlwr.AdminIdentity())
 		person.DELETE("/delete/:id", handlr.Delete, middlwr.AdminIdentity())
 
 		// User Api
 		user := api.Group("/user")
 		user.POST("/login", uhandlr.Login)
 		user.POST("/signup", uhandlr.Signup)
-		user.GET("/getAll", uhandlr.GetAll, middlwr.UserIdentity())
+		user.GET("/getAll", uhandlr.GetAll)
 		user.POST("/refresh/:id", uhandlr.RefreshTokenPair)
 
 		// Image requests
 		image := api.Group("/image")
+		image.Use(middlwr.AdminIdentity())
 		image.GET("/get/:name", uhandlr.GetImage)
 		image.POST("/set", uhandlr.SetImage)
 	}
+	e.GET("/swagger/*", echoSwagger.WrapHandler)
 
 	e.Logger.Fatal(e.Start(cfg.HTTPAddr))
 }

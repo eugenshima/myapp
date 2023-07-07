@@ -26,6 +26,10 @@ func (rdb *RedisConnection) RedisGetByID(ctx context.Context, id uuid.UUID) *mod
 		fmt.Printf("failed to get: %v", err)
 		return nil
 	}
+	err = rdb.rdb.Expire(context.Background(), id.String(), 20*time.Minute).Err()
+	if err != nil {
+		fmt.Println(err)
+	}
 	person := model.Person{}
 
 	person.ID = id
@@ -41,12 +45,28 @@ func (rdb *RedisConnection) RedisGetByID(ctx context.Context, id uuid.UUID) *mod
 	return &person
 }
 
+func (rdb *RedisConnection) XRedisSetByID(ctx context.Context, entity *model.Person) error {
+	streamID, err := rdb.rdb.XAdd(ctx, &redis.XAddArgs{
+		Stream: "Stream1",
+		Values: map[string]interface{}{
+			"name":      entity.Name,
+			"age":       entity.Age,
+			"ishealthy": entity.IsHealthy,
+		},
+	}).Result()
+	if err != nil {
+		return fmt.Errorf("failed to set: %v", err)
+	}
+	fmt.Println(streamID)
+	return nil
+}
+
 func (rdb *RedisConnection) RedisSetByID(ctx context.Context, entity *model.Person) error {
-	val, err := json.Marshal(model.PersonRedis{Name: "eugen", Age: 30, IsHealthy: true})
+	val, err := json.Marshal(model.PersonRedis{Name: entity.Name, Age: entity.Age, IsHealthy: entity.IsHealthy})
 	if err != nil {
 		return fmt.Errorf("failed to marshal: %v", err)
 	}
-	_, err = rdb.rdb.Set(ctx, entity.ID.String(), val, 1*time.Hour).Result()
+	_, err = rdb.rdb.Set(ctx, entity.ID.String(), val, 20*time.Minute).Result()
 	if err != nil {
 		return fmt.Errorf("failed to set: %v", err)
 	}

@@ -1,0 +1,362 @@
+basePath: /
+definitions:
+  handlers.image:
+    properties:
+      filename:
+        type: string
+      url:
+        type: string
+    type: object
+  model.Login:
+    properties:
+      login:
+        type: string
+      password:
+        type: string
+    required:
+    - login
+    - password
+    type: object
+  model.Person:
+    properties:
+      age:
+        maximum: 140
+        minimum: 0
+        type: integer
+      id:
+        type: string
+      ishealthy:
+        type: boolean
+      name:
+        type: string
+    required:
+    - age
+    - name
+    type: object
+  model.Signup:
+    properties:
+      login:
+        type: string
+      password:
+        type: string
+      role:
+        type: string
+    type: object
+  model.Tokens:
+    properties:
+      access_token:
+        type: string
+      refresh_token:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: This is my golang server.
+  title: Golang Web Service
+  version: "1.0"
+paths:
+  /api/image/get/{name}:
+    get:
+      description: Retrieves an image by name
+      parameters:
+      - description: Name of the image
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: Image file
+          schema:
+            type: file
+        "404":
+          description: Image not found
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: Get image by name
+      tags:
+      - download/upload images
+  /api/image/set:
+    post:
+      consumes:
+      - application/json
+      description: Sets an image from the provided URL
+      parameters:
+      - description: Image details
+        in: body
+        name: img
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.image'
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: Image has been set
+          schema:
+            type: string
+        "400":
+          description: Bad request
+          schema:
+            type: string
+        "404":
+          description: Error message
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: Set image
+      tags:
+      - download/upload images
+  /api/person/delete/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete person from database by ID
+      parameters:
+      - description: ID of the person
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Person object
+          schema:
+            $ref: '#/definitions/model.Person'
+        "400":
+          description: Bad request
+          schema:
+            type: string
+        "404":
+          description: Person not found
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: Delete Person
+      tags:
+      - Person CRUD
+  /api/person/getAll:
+    get:
+      description: Get All ^ :)
+      produces:
+      - application/json
+      responses:
+        "400":
+          description: Bad request
+          schema:
+            type: string
+        "404":
+          description: Person not found
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: Get All
+      tags:
+      - Person CRUD
+  /api/person/getById/{id}:
+    get:
+      description: Retrieves a person by ID
+      parameters:
+      - description: ID of the person
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Person object
+          schema:
+            $ref: '#/definitions/model.Person'
+        "400":
+          description: Bad request
+          schema:
+            type: string
+        "404":
+          description: Person not found
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: Get person by ID
+      tags:
+      - Person CRUD
+  /api/person/insert:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new person
+      parameters:
+      - description: Person object to be created
+        in: body
+        name: entity
+        required: true
+        schema:
+          $ref: '#/definitions/model.Person'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: ID of the created person
+          schema:
+            type: string
+        "400":
+          description: Bad request
+          schema:
+            type: string
+        "404":
+          description: Error message
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: Create person
+      tags:
+      - Person CRUD
+  /api/person/update/{id}:
+    patch:
+      consumes:
+      - application/json
+      description: updates person
+      parameters:
+      - description: ID of the person
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated person data
+        in: body
+        name: entity
+        required: true
+        schema:
+          $ref: '#/definitions/model.Person'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: ID of the created person
+          schema:
+            type: string
+        "400":
+          description: Bad request
+          schema:
+            type: string
+        "404":
+          description: Error message
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: Update person's information
+      tags:
+      - Person CRUD
+  /api/user/login:
+    post:
+      consumes:
+      - application/json
+      description: Logs in a user and returns access and refresh tokens
+      parameters:
+      - description: Login details
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/model.Login'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: ' Generating access and refresh tokens'
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Error message
+          schema:
+            type: string
+      summary: Login user
+      tags:
+      - authentication methods
+  /api/user/refresh/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Refreshes an access token and a refresh token
+      parameters:
+      - description: ID of the user
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Token pair details
+        in: body
+        name: reqBody
+        required: true
+        schema:
+          $ref: '#/definitions/model.Tokens'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Refreshed token pair
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            type: string
+        "404":
+          description: Error message
+          schema:
+            type: string
+      summary: Refresh token pair
+      tags:
+      - authentication methods
+  /api/user/signup:
+    post:
+      consumes:
+      - application/json
+      description: Registers a new user
+      parameters:
+      - description: Signup details
+        in: body
+        name: reqBody
+        required: true
+        schema:
+          $ref: '#/definitions/model.Signup'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User created
+          schema:
+            type: string
+        "400":
+          description: Error message
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Sign up user
+      tags:
+      - authentication methods
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

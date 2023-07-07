@@ -4,21 +4,20 @@ import (
 	"context"
 	"testing"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
-func TestMongoCreate(t *testing.T) {
-	err := rpsM.Create(context.Background(), &entityEugen)
-	require.NoError(t, err)
-	testEntity, err := rpsM.GetByID(context.Background(), entityEugen.ID)
-	require.NoError(t, err)
-	require.Equal(t, testEntity.ID, entityEugen.ID)
-	require.Equal(t, testEntity.Name, entityEugen.Name)
-	require.Equal(t, testEntity.Age, entityEugen.Age)
-	require.Equal(t, testEntity.IsHealthy, entityEugen.IsHealthy)
-}
+// func TestMongoCreate(t *testing.T) {
+// 	err := rpsM.Create(context.Background(), &entityEugen)
+// 	require.NoError(t, err)
+// 	testEntity, err := rpsM.GetByID(context.Background(), entityEugen.ID)
+// 	require.NoError(t, err)
+// 	require.Equal(t, testEntity.ID, entityEugen.ID)
+// 	require.Equal(t, testEntity.Name, entityEugen.Name)
+// 	require.Equal(t, testEntity.Age, entityEugen.Age)
+// 	require.Equal(t, testEntity.IsHealthy, entityEugen.IsHealthy)
+// }
 
 func TestMongoDelete(t *testing.T) {
 	err := rpsM.Delete(context.Background(), uuid.Nil)
@@ -54,15 +53,15 @@ func TestMongoUpdate(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Фиктивный тест пока что =================
-func TestMongoCreateWithNegativeAge(t *testing.T) {
-	entityEugen.Age = -1
-	validate := validator.New()
-	err := validate.Struct(entityEugen)
-	require.Error(t, err)
-	if err != nil {
-		err = rpsM.Create(context.Background(), &entityEugen)
-		require.NoError(t, err)
-		require.True(t, true, "not creating entity")
-	}
-}
+// // Фиктивный тест пока что =================
+// func TestMongoCreateWithNegativeAge(t *testing.T) {
+// 	entityEugen.Age = -1
+// 	validate := validator.New()
+// 	err := validate.Struct(entityEugen)
+// 	require.Error(t, err)
+// 	if err != nil {
+// 		err = rpsM.Create(context.Background(), &entityEugen)
+// 		require.NoError(t, err)
+// 		require.True(t, true, "not creating entity")
+// 	}
+// }

@@ -143,6 +143,7 @@ func ValidateToken(tokenString, signingKey string) (*jwt.Token, error) {
 
 // GetPayloadFromToken returns a payload from the given token
 func GetPayloadFromToken(token string) (uuid.UUID, string, error) {
+	fmt.Println(token)
 	parts := strings.Split(token, ".")
 	payload := parts[1]
 

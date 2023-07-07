@@ -38,6 +38,15 @@ type UserService interface {
 }
 
 // Login receives a GET request from client and returns a user(if exists)
+// @Summary Login user
+// @tags authentication methods
+// @Description Logs in a user and returns access and refresh tokens
+// @Accept json
+// @Produce json
+// @Param input body model.Login true "Login details"
+// @Success 200 {object} map[string]interface{} " Generating access and refresh tokens"
+// @Failure 404 {string} string "Error message"
+// @Router /api/user/login [post]
 func (handler *UserHandlerImpl) Login(c echo.Context) error {
 	input := model.Login{}
 	err := c.Bind(&input)
@@ -59,6 +68,16 @@ func (handler *UserHandlerImpl) Login(c echo.Context) error {
 }
 
 // Signup receives a POST request from client to sign up a user
+// @Summary Sign up user
+// @tags authentication methods
+// @Description Registers a new user
+// @Accept json
+// @Produce json
+// @Param reqBody body model.Signup true "Signup details"
+// @Success 200 {string} string "User created"
+// @Failure 400 {string} string "Error message"
+// @Failure 500 {string} string "Internal server error"
+// @Router /api/user/signup [post]
 func (handler *UserHandlerImpl) Signup(c echo.Context) error {
 	reqBody := model.Signup{}
 	err := c.Bind(&reqBody)
@@ -100,6 +119,17 @@ func (handler *UserHandlerImpl) GetAll(c echo.Context) error {
 }
 
 // RefreshTokenPair receives a POST request from client for refreshing a token pair
+// @Summary Refresh token pair
+// @tags authentication methods
+// @Description Refreshes an access token and a refresh token
+// @Accept json
+// @Produce json
+// @Param id path string true "ID of the user"
+// @Param reqBody body model.Tokens true "Token pair details"
+// @Success 200 {object} map[string]interface{} "Refreshed token pair"
+// @Failure 400 {string} string "Bad request"
+// @Failure 404 {string} string "Error message"
+// @Router /api/user/refresh/{id} [post]
 func (handler *UserHandlerImpl) RefreshTokenPair(c echo.Context) error {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -125,11 +155,22 @@ func (handler *UserHandlerImpl) RefreshTokenPair(c echo.Context) error {
 	return c.JSON(http.StatusOK, response)
 }
 
+// image struct for downlodaing images from internet
 type image struct {
 	Filename string `json:"filename"`
 	Url      string `json:"url"`
 }
 
+// GetImage returns an image from database
+// @Summary Get image by name
+// @Security ApiKeyAuth
+// @tags download/upload images
+// @Description Retrieves an image by name
+// @Produce octet-stream
+// @Param name path string true "Name of the image"
+// @Success 200 {file} file "Image file"
+// @Failure 404 {string} string "Image not found"
+// @Router /api/image/get/{name} [get]
 func (handler *UserHandlerImpl) GetImage(c echo.Context) error {
 	image := c.Param("name")
 	filePath := "/home/yauhenishymanski/MyProject/myapp/internal/images/" + image
@@ -137,6 +178,17 @@ func (handler *UserHandlerImpl) GetImage(c echo.Context) error {
 }
 
 // SetImage saves the image from the internet
+// @Summary Set image
+// @Security ApiKeyAuth
+// @tags download/upload images
+// @Description Sets an image from the provided URL
+// @Accept json
+// @Produce plain
+// @Param img body image true "Image details"
+// @Success 200 {string} string "Image has been set"
+// @Failure 400 {string} string "Bad request"
+// @Failure 404 {string} string "Error message"
+// @Router /api/image/set [post]
 func (handler *UserHandlerImpl) SetImage(c echo.Context) error {
 	img := image{}
 	err := c.Bind(&img)
