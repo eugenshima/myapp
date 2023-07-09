@@ -36,7 +36,7 @@ type PersonRepositoryPsql interface {
 // PersonRepositoryPsql interface, which contains repository methods
 type PersonRepositoryRedis interface {
 	RedisGetByID(ctx context.Context, id uuid.UUID) (*model.Person, error)
-	RedisSetByID(ctx context.Context, person *model.Person) error
+	RedisSetByID(ctx context.Context, entity *model.Person) error
 	RedisDeleteByID(ctx context.Context, id uuid.UUID) error
 }
 
@@ -51,11 +51,7 @@ func (db *PersonService) GetByID(ctx context.Context, id uuid.UUID) (*model.Pers
 	}
 	res, err = db.rps.GetByID(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("GetByID: %w", err)
-	}
-	db.rdb.RedisSetByID(ctx, res)
-	if err != nil {
-		return nil, fmt.Errorf("RedisSetByID: %w", err)
+		return nil, fmt.Errorf("error getting person: %v", err)
 	}
 	return res, nil
 }
@@ -67,23 +63,14 @@ func (db *PersonService) GetAll(ctx context.Context) ([]*model.Person, error) {
 
 // Delete is a service function which interacts with repository level
 func (db *PersonService) Delete(ctx context.Context, uuidString uuid.UUID) error {
-	err := db.rdb.RedisDeleteByID(ctx, uuidString)
-	if err != nil {
-		return fmt.Errorf("RedisDeleteByID: %w", err)
-	}
+	db.rdb.RedisDeleteByID(ctx, uuidString)
 	return db.rps.Delete(ctx, uuidString)
 }
 
 // Create is a service function which interacts with repository level
-func (db *PersonService) Create(ctx context.Context, person *model.Person) (uuid.UUID, error) {
-	id, err := db.rps.Create(ctx, person)
-	if err != nil {
-		return uuid.Nil, fmt.Errorf("Create: %w", err)
-	}
-	err = db.rdb.RedisSetByID(ctx, person)
-	if err != nil {
-		return uuid.Nil, fmt.Errorf("RedisSetByID: %w", err)
-	}
+func (db *PersonService) Create(ctx context.Context, entity *model.Person) (uuid.UUID, error) {
+	id, err := db.rps.Create(ctx, entity)
+	db.rdb.RedisSetByID(ctx, entity)
 	return id, err
 }
 
