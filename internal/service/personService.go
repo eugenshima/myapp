@@ -3,6 +3,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/eugenshima/myapp/internal/model"
 
@@ -33,7 +34,7 @@ type PersonRepositoryPsql interface {
 type PersonRepositoryRedis interface {
 	RedisGetByID(ctx context.Context, id uuid.UUID) *model.Person
 	RedisSetByID(ctx context.Context, entity *model.Person) error
-	XRedisSetByID(ctx context.Context, entity *model.Person) error
+	RedisDeleteByID(ctx context.Context, id uuid.UUID) error
 }
 
 // GetByID is a service function which interacts with PostgreSQL in repository level
@@ -42,7 +43,11 @@ func (db *PersonServiceImpl) GetByID(ctx context.Context, id uuid.UUID) (*model.
 	if res != nil {
 		return res, nil
 	}
-	return db.rps.GetByID(ctx, id)
+	res, err := db.rps.GetByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("error getting person: %v", err)
+	}
+	return res, nil
 }
 
 // GetAll is a service function which interacts with repository level
@@ -52,6 +57,7 @@ func (db *PersonServiceImpl) GetAll(ctx context.Context) ([]model.Person, error)
 
 // Delete is a service function which interacts with repository level
 func (db *PersonServiceImpl) Delete(ctx context.Context, uuidString uuid.UUID) error {
+	db.rdb.RedisDeleteByID(ctx, uuidString)
 	return db.rps.Delete(ctx, uuidString)
 }
 
@@ -59,7 +65,6 @@ func (db *PersonServiceImpl) Delete(ctx context.Context, uuidString uuid.UUID) e
 func (db *PersonServiceImpl) Create(ctx context.Context, entity *model.Person) (uuid.UUID, error) {
 	id, err := db.rps.Create(ctx, entity)
 	db.rdb.RedisSetByID(ctx, entity)
-	db.rdb.XRedisSetByID(ctx, entity)
 	return id, err
 }
 

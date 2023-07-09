@@ -85,7 +85,7 @@ func AdminIdentity() echo.MiddlewareFunc {
 				return echo.NewHTTPError(http.StatusUnauthorized, "Invalid token")
 			}
 			id, role, err := GetPayloadFromToken(headerParts[1])
-			fmt.Println(id)
+			fmt.Println("middleware id working --> ", id)
 			if err != nil {
 				return err
 			}
@@ -123,7 +123,6 @@ func RoleValidation(tokenString string) (bool, error) {
 	if role != "admin" {
 		return false, fmt.Errorf("invalid role(need admin for this request): %v", err)
 	}
-	fmt.Println(role)
 	return true, nil
 }
 
@@ -143,7 +142,6 @@ func ValidateToken(tokenString, signingKey string) (*jwt.Token, error) {
 
 // GetPayloadFromToken returns a payload from the given token
 func GetPayloadFromToken(token string) (uuid.UUID, string, error) {
-	fmt.Println(token)
 	parts := strings.Split(token, ".")
 	payload := parts[1]
 
@@ -166,6 +164,5 @@ func GetPayloadFromToken(token string) (uuid.UUID, string, error) {
 	if err != nil {
 		return uuid.Nil, "", fmt.Errorf("error decoding payload: %v", err)
 	}
-	fmt.Println("id -->", id)
 	return id, role, nil
 }

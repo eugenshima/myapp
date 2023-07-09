@@ -45,21 +45,21 @@ func (rdb *RedisConnection) RedisGetByID(ctx context.Context, id uuid.UUID) *mod
 	return &person
 }
 
-func (rdb *RedisConnection) XRedisSetByID(ctx context.Context, entity *model.Person) error {
-	streamID, err := rdb.rdb.XAdd(ctx, &redis.XAddArgs{
-		Stream: "Stream1",
-		Values: map[string]interface{}{
-			"name":      entity.Name,
-			"age":       entity.Age,
-			"ishealthy": entity.IsHealthy,
-		},
-	}).Result()
-	if err != nil {
-		return fmt.Errorf("failed to set: %v", err)
-	}
-	fmt.Println(streamID)
-	return nil
-}
+// func (rdb *RedisConnection) XRedisSetByID(ctx context.Context, entity *model.Person) error {
+// 	streamID, err := rdb.rdb.XAdd(ctx, &redis.XAddArgs{
+// 		Stream: "Stream1",
+// 		Values: map[string]interface{}{
+// 			"name":      entity.Name,
+// 			"age":       entity.Age,
+// 			"ishealthy": entity.IsHealthy,
+// 		},
+// 	}).Result()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to set: %v", err)
+// 	}
+// 	fmt.Println(streamID)
+// 	return nil
+// }
 
 func (rdb *RedisConnection) RedisSetByID(ctx context.Context, entity *model.Person) error {
 	val, err := json.Marshal(model.PersonRedis{Name: entity.Name, Age: entity.Age, IsHealthy: entity.IsHealthy})
@@ -69,6 +69,14 @@ func (rdb *RedisConnection) RedisSetByID(ctx context.Context, entity *model.Pers
 	_, err = rdb.rdb.Set(ctx, entity.ID.String(), val, 20*time.Minute).Result()
 	if err != nil {
 		return fmt.Errorf("failed to set: %v", err)
+	}
+	return nil
+}
+
+func (rdb *RedisConnection) RedisDeleteByID(ctx context.Context, id uuid.UUID) error {
+	_, err := rdb.rdb.Del(ctx, id.String()).Result()
+	if err != nil {
+		return fmt.Errorf("failed to delete: %v", err)
 	}
 	return nil
 }
