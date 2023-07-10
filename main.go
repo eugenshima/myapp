@@ -5,13 +5,13 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strconv"
-	"time"
 
 	_ "github.com/eugenshima/myapp/docs"
 	cfgrtn "github.com/eugenshima/myapp/internal/config"
+	"github.com/eugenshima/myapp/internal/consumer"
 	"github.com/eugenshima/myapp/internal/handlers"
 	middlwr "github.com/eugenshima/myapp/internal/middleware"
+	"github.com/eugenshima/myapp/internal/producer"
 	"github.com/eugenshima/myapp/internal/repository"
 	"github.com/eugenshima/myapp/internal/service"
 	"github.com/go-playground/validator"
@@ -24,18 +24,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
-
-type CustomValidator struct {
-	validator *validator.Validate
-}
-
-func (cv *CustomValidator) Validate(i interface{}) error {
-	if err := cv.validator.Struct(i); err != nil {
-		logrus.Errorf("Validator: %v", err)
-		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("validator: %v", err))
-	}
-	return nil
-}
 
 type CustomValidator struct {
 	validator *validator.Validate
@@ -186,64 +174,11 @@ func main() {
 	}
 	e.GET("/swagger/*", swg.WrapHandler)
 
-	//Redis Stream Producer
-	go func() {
-		identificator := 0
-		for {
-			id := strconv.FormatInt(time.Now().Unix(), 10)
-			payload := map[string]interface{}{
-				"timestamp": id,
-				"content":   fmt.Sprintf("Redis streaming %d...", identificator),
-			}
-
-			identificator++
-			id = id + "-" + strconv.Itoa(identificator)
-
-			err := rdbClient.XAdd(context.Background(), &redis.XAddArgs{
-				Stream: "testStream",
-				MaxLen: 0,
-				ID:     id,
-				Values: payload,
-			}).Err()
-			if err != nil {
-				fmt.Println("Error adding message to Redis Stream:", err)
-			}
-
-			time.Sleep(2 * time.Second)
-		}
-	}()
-
-	// Redis Stream Consumer
-	go func() {
-		for {
-			streams, err := rdbClient.XRead(context.Background(), &redis.XReadArgs{
-				Streams: []string{"testStream", "0"},
-				Count:   1,
-				Block:   0,
-			}).Result()
-			if err != nil {
-				fmt.Println("Error reading messages from Redis Stream:", err)
-			}
-			for _, stream := range streams {
-				streamName := stream.Stream
-				messages := stream.Messages
-
-				for _, msg := range messages {
-					messageID := msg.ID
-					messageData := msg.Values
-
-					fmt.Println("Received message from Redis Stream:", messageID, messageData)
-
-					_, err := rdbClient.XDel(context.Background(), streamName, messageID).Result()
-					if err != nil {
-						fmt.Println("Error deleting message from Redis Stream:", err)
-					}
-				}
-			}
-
-			time.Sleep(2 * time.Second)
-		}
-	}()
+	redisProd := producer.NewProducer(rdbClient)
+	redisCons := consumer.NewConsumer(rdbClient)
+	// Redis Stream
+	go redisProd.RedisProducer()
+	go redisCons.RedisConsumer()
 
 	e.Logger.Fatal(e.Start(cfg.HTTPAddr))
 }
