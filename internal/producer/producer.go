@@ -9,6 +9,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// RedisProducer represents the
 type RedisProducer struct {
 	rdb *redis.Client
 }
