@@ -125,6 +125,7 @@ func main() {
 		echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("error creating database connection with Redis: %v", err))
 		return
 	}
+
 	var handlr *handlers.PersonHandler
 	var uhandlr *handlers.UserHandler
 	switch ch {
