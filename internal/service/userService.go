@@ -28,14 +28,14 @@ type tokenClaims struct {
 	jwt.StandardClaims
 }
 
-// UserServiceImpl is a struct that contains a reference to the repository interface
-type UserServiceImpl struct {
+// UserService is a struct that contains a reference to the repository interface
+type UserService struct {
 	rps UserRepositoryPsql
 }
 
 // NewUserServiceImpl creates a new service
-func NewUserServiceImpl(rps UserRepositoryPsql) *UserServiceImpl {
-	return &UserServiceImpl{
+func NewUserServiceImpl(rps UserRepositoryPsql) *UserService {
+	return &UserService{
 		rps: rps,
 	}
 }
@@ -51,97 +51,104 @@ type UserRepositoryPsql interface {
 }
 
 // GenerateTokens implements the UserServicePsql interface
-func (db *UserServiceImpl) GenerateTokens(ctx context.Context, login, password string) (accessToken, refreshToken string, err error) {
+func (db *UserService) GenerateTokens(ctx context.Context, login, password string) (accessToken, refreshToken string, err error) {
 	cfg, err := config.NewConfig()
 	if err != nil {
-		return "", "", fmt.Errorf("error creating config: %v", err)
+		return "", "", fmt.Errorf("NewConfig: %w", err)
 	}
 
 	// GetUser
 	id, pass, role, err := db.rps.GetUser(ctx, login)
 	if err != nil {
-		return "", "", fmt.Errorf("error in GenerateToken (GetUser): %v", err)
+		return "", "", fmt.Errorf("GetUser: %w", err)
 	}
 	// CompareHashAndPassword
 	err = bcrypt.CompareHashAndPassword(pass, []byte(password))
 	if err != nil {
-		return "", "", fmt.Errorf("error in GenerateToken (CompareHashAndPassword): %v", err)
+		return "", "", fmt.Errorf("CompareHashAndPassword: %w", err)
 	}
 	// GenerateAccessToken
 	accessToken, refreshToken, err = GenerateAccessAndRefreshTokens(cfg.SigningKey, role, id)
 	if err != nil {
-		return "", "", fmt.Errorf("error in GenerateToken (GenerateAccessAndRefreshTokens): %v", err)
+		return "", "", fmt.Errorf("GenerateAccessAndRefreshTokens: %w", err)
 	}
 	// HashRefreshToken
 	hashedRefreshToken, err := HashRefreshToken(refreshToken)
 	if err != nil {
-		return "", "", fmt.Errorf("error in refresh token: %v", err)
+		return "", "", fmt.Errorf("HashRefreshToken: %w", err)
 	}
 	// SaveRefreshToken
 	err = db.rps.SaveRefreshToken(ctx, id, hashedRefreshToken)
 	if err != nil {
-		return "", "", fmt.Errorf("error in GenerateToken(SaveRefreshToken): %v", err)
+		return "", "", fmt.Errorf("SaveRefreshToken: %w", err)
 	}
 	// CompareTokenIDs
 	compID, err := CompareTokenIDs(accessToken, refreshToken, cfg.SigningKey)
 	if err != nil {
-		return "", "", fmt.Errorf("error in GenerateToken (CompareTokenIDs): %v", err)
+		return "", "", fmt.Errorf("CompareTokenIDs: %w", err)
 	}
 	if !compID {
-		return "", "", fmt.Errorf("invalid token(campair error)): %v", err)
+		return "", "", fmt.Errorf("invalid token(campare error): %w", err)
 	}
 
 	return accessToken, refreshToken, nil
 }
 
-func (db *UserServiceImpl) RefreshTokenPair(ctx context.Context, accessToken, refreshToken string, id uuid.UUID) (access, refresh string, err error) {
+func (db *UserService) RefreshTokenPair(ctx context.Context, accessToken, refreshToken string, id uuid.UUID) (access, refresh string, err error) {
 	cfg, err := config.NewConfig()
 	if err != nil {
-		return "", "", fmt.Errorf("error creating config: %v", err)
+		return "", "", fmt.Errorf("NewConfig: %w", err)
 	}
 	// Get RefreshToken
 	savedRefreshToken, err := db.rps.GetRefreshToken(ctx, id)
 	if err != nil {
-		return "", "", fmt.Errorf("error in RefreshTokenPair (GetRefreshToken): %v", err)
+		return "", "", fmt.Errorf("GetRefreshToken: %w", err)
 	}
 	// HashRefreshToken
 	hashedRefreshToken, err := HashRefreshToken(refreshToken)
 	if err != nil {
-		return "", "", fmt.Errorf("error in RefreshTokenPair (HashRefreshToken): %v", err)
+		return "", "", fmt.Errorf("HashRefreshToken: %w", err)
 	}
 	// CompareHashedTokens
 	isEqual := CompareHashedTokens(savedRefreshToken, hashedRefreshToken)
 	if !isEqual {
-		return "", "", fmt.Errorf("error compairing refresh tokens (CompareHashedTokens): %v", err)
+		return "", "", fmt.Errorf("CompareHashedTokens: %w", err)
 	}
 	id, role, err := mdlwr.GetPayloadFromToken(accessToken)
 	if err != nil {
-		return "", "", fmt.Errorf("error in RefreshTokenPair (GetPayloadFromToken): %v", err)
+		return "", "", fmt.Errorf("GetPayloadFromToken: %w", err)
+	}
+	// CompareTokenIDs
+	compID, err := CompareTokenIDs(accessToken, refreshToken, cfg.SigningKey)
+	if err != nil {
+		return "", "", fmt.Errorf("CompareTokenIDs: %w", err)
+	}
+	if !compID {
+		return "", "", fmt.Errorf("invalid token(campare error): %w", err)
 	}
 	// GenerateAccessAndRefreshTokens
 	access, refresh, err = GenerateAccessAndRefreshTokens(cfg.SigningKey, role, id)
 	if err != nil {
-		return "", "", fmt.Errorf("error generating access and refresh tokens: %v", err)
+		return "", "", fmt.Errorf("GenerateAccessAndRefreshTokens: %w", err)
 	}
 	return access, refresh, nil
 }
 
 // Signup implements the UserServicePsql interface
-func (db *UserServiceImpl) Signup(ctx context.Context, entity *model.User) error {
+func (db *UserService) Signup(ctx context.Context, entity *model.User) error {
 	hashedPassword := hashPassword(entity.Password)
 	entity.Password = hashedPassword
 	return db.rps.Signup(ctx, entity)
 }
 
 // GetAll implements the UserServicePsql interface
-func (db *UserServiceImpl) GetAll(ctx context.Context) ([]*model.User, error) {
+func (db *UserService) GetAll(ctx context.Context) ([]*model.User, error) {
 	return db.rps.GetAll(ctx)
 }
 
 // HashPassword func returns hashed password using bcrypt algorithm
 func hashPassword(password []byte) []byte {
 	hashedPassword, err := bcrypt.GenerateFromPassword(password, bcrypt.DefaultCost)
-
 	if err != nil {
 		return nil
 	}
@@ -174,12 +181,12 @@ func CompareHashedTokens(token1, token2 []byte) bool {
 func CompareTokenIDs(accessToken, refreshToken, key string) (bool, error) {
 	accessID, err := ExtractIDFromToken(accessToken, key)
 	if err != nil {
-		return false, fmt.Errorf("error extracting ID from access token: %v", err)
+		return false, fmt.Errorf("ExtractIDFromToken: %w", err)
 	}
 
 	refreshID, err := ExtractIDFromToken(refreshToken, key)
 	if err != nil {
-		return false, fmt.Errorf("error extracting ID from refresh token: %v", err)
+		return false, fmt.Errorf("ExtractIDFromToken: %w", err)
 	}
 	return accessID == refreshID, nil
 }
@@ -190,7 +197,7 @@ func ExtractIDFromToken(tokenString, key string) (string, error) {
 		return []byte(key), nil
 	})
 	if err != nil {
-		return "", fmt.Errorf("error parsing token: %v", err)
+		return "", fmt.Errorf("Parse(): %w", err)
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
@@ -204,11 +211,6 @@ func ExtractIDFromToken(tokenString, key string) (string, error) {
 
 // GenerateAccessAndRefreshTokens func returns access & refresh tokens
 func GenerateAccessAndRefreshTokens(key, role string, id uuid.UUID) (access, refresh string, err error) {
-
-	if err != nil {
-		return "", "", fmt.Errorf("error in GenerateAccessToken (uuid.NewRandom): %v", err)
-	}
-
 	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, &tokenClaims{
 		Role: role,
 		StandardClaims: jwt.StandardClaims{
@@ -227,16 +229,11 @@ func GenerateAccessAndRefreshTokens(key, role string, id uuid.UUID) (access, ref
 	})
 	access, err = accessToken.SignedString([]byte(key))
 	if err != nil {
-		return "", "", fmt.Errorf("error in GenerateAccessToken (accessToken.SignedString): %v", err)
+		return "", "", fmt.Errorf("SignedString(access): %w", err)
 	}
 	refresh, err = refreshToken.SignedString([]byte(key))
 	if err != nil {
-		return "", "", fmt.Errorf("error in GenerateAccessToken (refreshToken.SignedString): %v", err)
+		return "", "", fmt.Errorf("SignedString(refresh): %w", err)
 	}
-	id, role, err = mdlwr.GetPayloadFromToken(access)
-	if err != nil {
-		return "", "", fmt.Errorf("error in GenerateAccessToken (middlwr.GetPayloadFromToken): %v", err)
-	}
-	fmt.Println(role, id)
 	return access, refresh, err
 }

@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -13,14 +14,28 @@ import (
 	middlwr "github.com/eugenshima/myapp/internal/middleware"
 	"github.com/eugenshima/myapp/internal/repository"
 	"github.com/eugenshima/myapp/internal/service"
+	"github.com/go-playground/validator"
 	"github.com/redis/go-redis/v9"
+	"github.com/sirupsen/logrus"
 
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/labstack/echo/v4"
-	echoSwagger "github.com/swaggo/echo-swagger"
+	swg "github.com/swaggo/echo-swagger"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
+
+type CustomValidator struct {
+	validator *validator.Validate
+}
+
+func (cv *CustomValidator) Validate(i interface{}) error {
+	if err := cv.validator.Struct(i); err != nil {
+		logrus.Errorf("Validator: %v", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("validator: %v", err))
+	}
+	return nil
+}
 
 // NewMongo creates a connection to MongoDB server
 func NewMongo(env string) (*mongo.Client, error) {
@@ -61,10 +76,9 @@ func NewDBPsql(env string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-func NewDBRedis() (*redis.Client, error) {
-	opt, err := redis.ParseURL("redis://:@localhost:6379/1")
+func NewDBRedis(env string) (*redis.Client, error) {
+	opt, err := redis.ParseURL(env)
 	if err != nil {
-
 		return nil, fmt.Errorf("error parsing redis: %v", err)
 	}
 
@@ -85,7 +99,7 @@ func NewDBRedis() (*redis.Client, error) {
 // @name Authorization
 func main() {
 	e := echo.New()
-
+	e.Validator = &CustomValidator{validator: validator.New()}
 	cfg, err := cfgrtn.NewConfig()
 	if err != nil {
 		fmt.Printf("Error extracting env variables: %v", err)
@@ -97,22 +111,22 @@ func main() {
 	// Initializing the Database Connector (MongoDB)
 	client, err := NewMongo(cfg.MongoDBAddr)
 	if err != nil {
-		fmt.Printf("Error creating database connection with PostgreSQL: %v", err)
+		echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("error creating database connection with MongoDB: %v", err))
 		return
 	}
 	// Initializing the Database Connector (PostgreSQL)
 	pool, err := NewDBPsql(cfg.PgxDBAddr)
 	if err != nil {
-		fmt.Printf("Error creating database connection with PostgreSQL: %v", err)
+		echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("error creating database connection with PostgreSQL: %v", err))
 		return
 	}
-	rdbClient, err := NewDBRedis()
+	rdbClient, err := NewDBRedis(cfg.RedisDBAddr)
 	if err != nil {
-		fmt.Printf("Error creating database connection with Redis: %v", err)
+		echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("error creating database connection with Redis: %v", err))
 		return
 	}
-	var handlr *handlers.PersonHandlerImpl
-	var uhandlr *handlers.UserHandlerImpl
+	var handlr *handlers.PersonHandler
+	var uhandlr *handlers.UserHandler
 	switch ch {
 	case "mongo":
 
@@ -120,19 +134,19 @@ func main() {
 		rps := repository.NewMongoDBConnection(client)
 		rdb := repository.NewRedisConnection(rdbClient)
 		srv := service.NewPersonService(rps, rdb)
-		handlr = handlers.NewPersonHandler(srv)
+		handlr = handlers.NewPersonHandler(srv, validator.New())
 
 	case "pgx":
 		// Person db pgx
 		rps := repository.NewPsqlConnection(pool)
 		rdb := repository.NewRedisConnection(rdbClient)
 		srv := service.NewPersonService(rps, rdb)
-		handlr = handlers.NewPersonHandler(srv)
+		handlr = handlers.NewPersonHandler(srv, validator.New())
 
 		// User db pgx
 		urps := repository.NewUserPsqlConnection(pool)
 		usrv := service.NewUserServiceImpl(urps)
-		uhandlr = handlers.NewUserHandlerImpl(usrv)
+		uhandlr = handlers.NewUserHandlerImpl(usrv, validator.New())
 	}
 
 	api := e.Group("/api")
@@ -158,16 +172,16 @@ func main() {
 		image.GET("/get/:name", uhandlr.GetImage)
 		image.POST("/set", uhandlr.SetImage)
 	}
-	e.GET("/swagger/*", echoSwagger.WrapHandler)
+	e.GET("/swagger/*", swg.WrapHandler)
 
-	// Redis Stream Producer
+	//Redis Stream Producer
 	go func() {
 		identificator := 0
 		for {
 			id := strconv.FormatInt(time.Now().Unix(), 10)
 			payload := map[string]interface{}{
 				"timestamp": id,
-				"content":   fmt.Sprintf("Redis streaming %v...", identificator),
+				"content":   fmt.Sprintf("Redis streaming %d...", identificator),
 			}
 
 			identificator++

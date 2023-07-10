@@ -23,15 +23,14 @@ func NewMongoDBConnection(client *mongo.Client) *MongoDBConnection {
 }
 
 // Update is a func which executes MongoDB command db.person.updateOne
-func (db *MongoDBConnection) Update(ctx context.Context, uuidString uuid.UUID, entity *model.Person) error {
+func (db *MongoDBConnection) Update(ctx context.Context, uuidString uuid.UUID, person *model.Person) error {
 	collection := db.client.Database("my_mongo_base").Collection("person")
 	filter := bson.M{"_id": uuidString}
-	update := bson.M{"$set": entity}
+	update := bson.M{"$set": person}
 	_, err := collection.UpdateOne(ctx, filter, update)
 	if err != nil {
-		return fmt.Errorf("error in UpdateOne(): %v", err)
+		return fmt.Errorf("UpdateOne: %w", err)
 	}
-	fmt.Println("Update is working")
 	return nil
 }
 
@@ -48,47 +47,47 @@ func (db *MongoDBConnection) Delete(ctx context.Context, uuidString uuid.UUID) e
 }
 
 // Create function executes "db.person.insertOne()" command
-func (db *MongoDBConnection) Create(ctx context.Context, entity *model.Person) (uuid.UUID, error) {
+func (db *MongoDBConnection) Create(ctx context.Context, person *model.Person) (uuid.UUID, error) {
 	collection := db.client.Database("my_mongo_base").Collection("person")
-	_, err := collection.InsertOne(ctx, entity)
+	_, err := collection.InsertOne(ctx, person)
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("InsertOne error: %w", err)
+		return uuid.Nil, fmt.Errorf("InsertOne: %w", err)
 	}
-	return entity.ID, nil
+	return person.ID, nil
 }
 
 // GetByID function executes "db.person.FindOne()" command
 func (db *MongoDBConnection) GetByID(ctx context.Context, ID uuid.UUID) (*model.Person, error) {
 	collection := db.client.Database("my_mongo_base").Collection("person")
 	filter := bson.M{"_id": ID}
-	var entity model.Person
-	err := collection.FindOne(ctx, filter).Decode(&entity)
+	var person model.Person
+	err := collection.FindOne(ctx, filter).Decode(&person)
 
 	if err != nil {
-		return &entity, fmt.Errorf("error in PersonMongo (GetById) findOne(): %w", err)
+		return &person, fmt.Errorf("Decode(): %w", err)
 	}
 
-	return &entity, nil
+	return &person, nil
 }
 
 // GetAll function executes "db.person.FindOne()" command
-func (db *MongoDBConnection) GetAll(ctx context.Context) ([]model.Person, error) {
+func (db *MongoDBConnection) GetAll(ctx context.Context) ([]*model.Person, error) {
 	fmt.Println("MongoDB")
 	coll := db.client.Database("my_mongo_base").Collection("person")
 	filter := bson.M{}
-	var allPers []model.Person
+	var allPerson []*model.Person
 	cursor, err := coll.Find(ctx, filter)
 	if err != nil {
-		return nil, fmt.Errorf("PersonMongo -> GetAll -> Find -> error: %w", err)
+		return nil, fmt.Errorf("Find(): %w", err)
 	}
-	var pers model.Person
+	var pers *model.Person
 	for cursor.Next(ctx) {
 		err = cursor.Decode(&pers)
-		fmt.Println(pers)
+
 		if err != nil {
-			return allPers, fmt.Errorf("PersonMongo -> GetAll -> Decode -> error: %w", err)
+			return allPerson, fmt.Errorf("Decode(): %w", err)
 		}
-		allPers = append(allPers, pers)
+		allPerson = append(allPerson, pers)
 	}
-	return allPers, nil
+	return allPerson, nil
 }

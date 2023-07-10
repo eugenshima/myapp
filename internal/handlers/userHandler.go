@@ -17,15 +17,17 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// UserHandlerImpl struct represents a user handler implementation
-type UserHandlerImpl struct {
-	srv UserService
+// UserHandler struct represents a user handler implementation
+type UserHandler struct {
+	srv       UserService
+	validator *validator.Validate
 }
 
 // NewUserHandlerImpl creates a new Handler
-func NewUserHandlerImpl(srv UserService) *UserHandlerImpl {
-	return &UserHandlerImpl{
-		srv: srv,
+func NewUserHandlerImpl(srv UserService, validator *validator.Validate) *UserHandler {
+	return &UserHandler{
+		srv:       srv,
+		validator: validator,
 	}
 }
 
@@ -47,20 +49,25 @@ type UserService interface {
 // @Success 200 {object} map[string]interface{} " Generating access and refresh tokens"
 // @Failure 404 {string} string "Error message"
 // @Router /api/user/login [post]
-func (handler *UserHandlerImpl) Login(c echo.Context) error {
+func (handler *UserHandler) Login(c echo.Context) error {
 	input := model.Login{}
 	err := c.Bind(&input)
 	if err != nil {
-		logrus.Errorf("Error in userHandler: %v", err)
-		return c.String(http.StatusNotFound, fmt.Sprintf("Error in userHandler: %v", err))
+		logrus.Errorf("Bind: %v", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Bind: %v", err))
 	}
 
+	err = c.Validate(input)
+	if err != nil {
+		logrus.Errorf("Validate: %v", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Validate: %v", err))
+	}
 	accessToken, refreshToken, err := handler.srv.GenerateTokens(c.Request().Context(), input.Login, input.Password)
 	if err != nil {
-		logrus.Errorf("error Generating JWT token %v", err)
-		return c.String(http.StatusNotFound, fmt.Sprintf("Error in userHandler: %v", err))
+		logrus.Errorf("GenerateTokens %v", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("GenerateTokens: %v", err))
 	}
-	response := map[string]interface{}{
+	response := map[string]string{
 		"access_token":  accessToken,
 		"refresh_token": refreshToken,
 	}
@@ -78,42 +85,40 @@ func (handler *UserHandlerImpl) Login(c echo.Context) error {
 // @Failure 400 {string} string "Error message"
 // @Failure 500 {string} string "Internal server error"
 // @Router /api/user/signup [post]
-func (handler *UserHandlerImpl) Signup(c echo.Context) error {
+func (handler *UserHandler) Signup(c echo.Context) error {
 	reqBody := model.Signup{}
 	err := c.Bind(&reqBody)
 	if err != nil {
-		logrus.Errorf("Error in userHandler: %v", err)
-		return c.String(http.StatusNotFound, fmt.Sprintf("Error in userHandler: %v", err))
+		logrus.Errorf("Bind: %v", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Bind: %v", err))
 	}
-	entity := &model.User{
+	person := &model.User{
 		ID:       uuid.New(),
 		Login:    reqBody.Login,
 		Password: []byte(reqBody.Password),
 		Role:     reqBody.Role,
 	}
 
-	validate := validator.New()
-	if err = validate.Struct(entity); err != nil {
-		logrus.Errorf("error in handler: %v", err)
-		str := fmt.Sprintf("Error in handler: %v", err)
-		return c.String(http.StatusBadRequest, str)
-	}
-
-	err = handler.srv.Signup(c.Request().Context(), entity)
+	err = c.Validate(person)
 	if err != nil {
-		logrus.Errorf("error calling Signup method: %v", err)
-		return c.String(http.StatusInternalServerError, fmt.Sprintf("Error in userHandler: %v", err))
+		logrus.Errorf("Validate: %v", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Validate: %v", err))
+	}
+	err = handler.srv.Signup(c.Request().Context(), person)
+	if err != nil {
+		logrus.Errorf("Signup: %v", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Signup: %v", err))
 	}
 
 	return c.JSON(http.StatusOK, "Created")
 }
 
 // GetAll receives a POST request from client for getting all entities from the server
-func (handler *UserHandlerImpl) GetAll(c echo.Context) error {
+func (handler *UserHandler) GetAll(c echo.Context) error {
 	results, err := handler.srv.GetAll(c.Request().Context())
 	if err != nil {
-		logrus.Errorf("error calling GetAll method: %v", err)
-		return c.String(http.StatusNotFound, fmt.Sprintf("Error in userHandler: %v", err))
+		logrus.Errorf("GetAll: %v", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("GetAll: %v", err))
 	}
 	return c.JSON(http.StatusOK, results)
 }
@@ -130,25 +135,25 @@ func (handler *UserHandlerImpl) GetAll(c echo.Context) error {
 // @Failure 400 {string} string "Bad request"
 // @Failure 404 {string} string "Error message"
 // @Router /api/user/refresh/{id} [post]
-func (handler *UserHandlerImpl) RefreshTokenPair(c echo.Context) error {
+func (handler *UserHandler) RefreshTokenPair(c echo.Context) error {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		logrus.Errorf("error calling RefreshTokenPair method: %v", err)
-		return c.String(http.StatusBadRequest, fmt.Sprintf("Error in userHandler: %v", err))
+		logrus.Errorf("Parse: %v", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Parse: %v", err))
 	}
 	reqBody := model.Tokens{}
 	err = c.Bind(&reqBody)
 	if err != nil {
-		logrus.Errorf("error calling RefreshTokenPair method: %v", err)
-		return c.String(http.StatusNotFound, fmt.Sprintf("Error in userHandler: %v", err))
+		logrus.Errorf("Parse: %v", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Parse: %v", err))
 	}
 
 	accessToken, refreshToken, err := handler.srv.RefreshTokenPair(c.Request().Context(), reqBody.AccessToken, reqBody.RefreshToken, id)
 	if err != nil {
-		logrus.Errorf("error calling RefreshTokenPair method: %v", err)
-		return c.String(http.StatusNotFound, fmt.Sprintf("Error in userHandler: %v", err))
+		logrus.Errorf("Parse: %v", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Parse: %v", err))
 	}
-	response := map[string]interface{}{
+	response := map[string]string{
 		"access_token":  accessToken,
 		"refresh_token": refreshToken,
 	}
@@ -171,7 +176,7 @@ type image struct {
 // @Success 200 {file} file "Image file"
 // @Failure 404 {string} string "Image not found"
 // @Router /api/image/get/{name} [get]
-func (handler *UserHandlerImpl) GetImage(c echo.Context) error {
+func (handler *UserHandler) GetImage(c echo.Context) error {
 	image := c.Param("name")
 	filePath := "/home/yauhenishymanski/MyProject/myapp/internal/images/" + image
 	return c.Inline(filePath, image)
@@ -189,32 +194,32 @@ func (handler *UserHandlerImpl) GetImage(c echo.Context) error {
 // @Failure 400 {string} string "Bad request"
 // @Failure 404 {string} string "Error message"
 // @Router /api/image/set [post]
-func (handler *UserHandlerImpl) SetImage(c echo.Context) error {
+func (handler *UserHandler) SetImage(c echo.Context) error {
 	img := image{}
 	err := c.Bind(&img)
 	if err != nil {
-		logrus.Errorf("error in handler: %v", err)
-		return c.String(http.StatusBadRequest, fmt.Sprintf("Error in handler: %v", err))
+		logrus.Errorf("Bind: %v", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Bind: %v", err))
 	}
 	response, err := http.Get(img.Url)
 	if err != nil {
-		logrus.Errorf("error in handler: %v", err)
-		return c.String(http.StatusBadRequest, fmt.Sprintf("Error in handler: %v", err))
+		logrus.Errorf("Get: %v", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Get: %v", err))
 	}
 	defer response.Body.Close()
 
 	filename := filepath.Join("/home/yauhenishymanski/MyProject/myapp/internal/images", img.Filename)
 	file, err := os.Create(filename)
 	if err != nil {
-		logrus.Errorf("error in handler: %v", err)
-		return c.String(http.StatusBadRequest, fmt.Sprintf("Error in handler: %v", err))
+		logrus.Errorf("Create: %v", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Create: %v", err))
 	}
 	defer file.Close()
 
 	_, err = io.Copy(file, response.Body)
 	if err != nil {
-		logrus.Errorf("error in handler: %v", err)
-		return c.String(http.StatusBadRequest, fmt.Sprintf("Error in handler: %v", err))
+		logrus.Errorf("Copy: %v", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Copy: %v", err))
 	}
 	return c.String(http.StatusOK, "image has been set")
 }

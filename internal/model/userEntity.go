@@ -20,9 +20,9 @@ type Login struct {
 
 // Signup struct for user
 type Signup struct {
-	Login    string `json:"login"`
-	Password string `json:"password"`
-	Role     string `json:"role"`
+	Login    string `json:"login" validate:"required"`
+	Password string `json:"password" validate:"required"`
+	Role     string `json:"role" validate:"required"`
 }
 
 // Tokens struct for tokens

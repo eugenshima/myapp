@@ -25,37 +25,37 @@ func NewPsqlConnection(pool *pgxpool.Pool) *PsqlConnection {
 
 // GetByID function executes SQL request to select all rows, where id=Id
 func (db *PsqlConnection) GetByID(ctx context.Context, ID uuid.UUID) (*model.Person, error) {
-	var entity model.Person
+	var person model.Person
 
-	query := `SELECT id, name, age, ishealthy FROM goschema.person WHERE id=$1`
+	query := `SELECT id, name, age, is_healthy FROM goschema.person WHERE id=$1`
 
 	// Execute a SQL query on a database
-	err := db.pool.QueryRow(ctx, query, ID).Scan(&entity.ID, &entity.Name, &entity.Age, &entity.IsHealthy)
+	err := db.pool.QueryRow(ctx, query, ID).Scan(&person.ID, &person.Name, &person.Age, &person.IsHealthy)
 	if err != nil {
-		return nil, fmt.Errorf("error in PersonP.go GetByname() QueryRow(): %v", err) // Returning error message
+		return nil, fmt.Errorf("QueryRow(): %w", err)
 	}
-	return &entity, nil
+	return &person, nil
 }
 
 // GetAll function executes SQL request to select all rows from Database
-func (db *PsqlConnection) GetAll(ctx context.Context) ([]model.Person, error) {
-	rows, err := db.pool.Query(ctx, "SELECT id, name, age, ishealthy FROM goschema.person")
+func (db *PsqlConnection) GetAll(ctx context.Context) ([]*model.Person, error) {
+	rows, err := db.pool.Query(ctx, "SELECT id, name, age, is_healthy FROM goschema.person")
 	if err != nil {
-		return nil, fmt.Errorf("error in PersonP.go GetAll() Query(): %v", err) // Returning error message
+		return nil, fmt.Errorf("Query(): %w", err)
 	}
 	defer rows.Close()
 
 	// Create slice to store data from our SQL request
-	var results []model.Person
+	var results []*model.Person
 
 	// go;) through each line
 	for rows.Next() {
-		entity := model.Person{}
-		err := rows.Scan(&entity.ID, &entity.Name, &entity.Age, &entity.IsHealthy)
+		person := &model.Person{}
+		err := rows.Scan(&person.ID, &person.Name, &person.Age, &person.IsHealthy)
 		if err != nil {
-			return nil, fmt.Errorf("error in PersonP.go GetAll() rows.Next(): %v", err) // Returning error message
+			return nil, fmt.Errorf("Scan(): %w", err) // Returning error message
 		}
-		results = append(results, entity)
+		results = append(results, person)
 	}
 	return results, rows.Err()
 }
@@ -64,7 +64,7 @@ func (db *PsqlConnection) GetAll(ctx context.Context) ([]model.Person, error) {
 func (db *PsqlConnection) Delete(ctx context.Context, uuidString uuid.UUID) error {
 	bd, err := db.pool.Exec(ctx, "DELETE FROM goschema.person WHERE id=$1", uuidString)
 	if err != nil && !bd.Delete() {
-		return fmt.Errorf("error deleting data from table: %v", err) // Returning error message
+		return fmt.Errorf("Exec(): %w", err) // Returning error message
 	}
 	return nil
 }
@@ -74,21 +74,20 @@ func (db *PsqlConnection) Create(ctx context.Context, entity *model.Person) (uui
 	entity.ID = uuid.New()
 
 	bd, err := db.pool.Exec(ctx,
-		`INSERT INTO goschema.person (id, name, age, ishealthy) 
+		`INSERT INTO goschema.person (id, name, age, is_healthy) 
 	VALUES($1,$2,$3,$4)`,
 		entity.ID, entity.Name, entity.Age, entity.IsHealthy)
-
 	if err != nil && !bd.Insert() {
-		return uuid.Nil, fmt.Errorf("error deleting data into table: %v", err) // Returning error message
+		return uuid.Nil, fmt.Errorf("Exec(): %w", err) // Returning error message
 	}
 	return entity.ID, nil
 }
 
 // Update function executes SQL request to update person data in database
-func (db *PsqlConnection) Update(ctx context.Context, uuidString uuid.UUID, entity *model.Person) error {
-	bd, err := db.pool.Exec(ctx, "UPDATE goschema.person SET name=$1, age=$2, ishealthy=$3 WHERE id=$4", entity.Name, entity.Age, entity.IsHealthy, uuidString)
+func (db *PsqlConnection) Update(ctx context.Context, uuidString uuid.UUID, person *model.Person) error {
+	bd, err := db.pool.Exec(ctx, "UPDATE goschema.person SET name=$1, age=$2, is_healthy=$3 WHERE id=$4", person.Name, person.Age, person.IsHealthy, uuidString)
 	if err != nil && !bd.Update() {
-		return fmt.Errorf("error updating data in table: %v", err) // Returning error message
+		return fmt.Errorf("Exec(): %w", err) // Returning error message
 	}
 	return nil
 }

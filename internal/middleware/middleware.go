@@ -54,6 +54,7 @@ func UserIdentity() echo.MiddlewareFunc {
 					return echo.NewHTTPError(http.StatusUnauthorized, "Token is expired")
 				}
 			}
+
 			return next(c)
 		}
 	}
@@ -110,18 +111,18 @@ func RoleValidation(tokenString string) (bool, error) {
 
 	payloadBytes, err := base64.RawURLEncoding.DecodeString(payload)
 	if err != nil {
-		return false, fmt.Errorf("error decoding payload: %v", err)
+		return false, fmt.Errorf("DecodeString: %w", err)
 	}
 
 	var claims tokenClaims
 	err = json.Unmarshal(payloadBytes, &claims)
 	if err != nil {
-		return false, fmt.Errorf("error decoding payload: %v", err)
+		return false, fmt.Errorf("Unmarshal(): %w", err)
 	}
 
 	role := claims.Role
 	if role != "admin" {
-		return false, fmt.Errorf("invalid role(need admin for this request): %v", err)
+		return false, fmt.Errorf("invalid role: %w", err)
 	}
 	return true, nil
 }
@@ -130,12 +131,12 @@ func RoleValidation(tokenString string) (bool, error) {
 func ValidateToken(tokenString, signingKey string) (*jwt.Token, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			return nil, fmt.Errorf("Parse(): %v", token.Header["alg"])
 		}
 		return []byte(signingKey), nil
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Parse(): %w", err)
 	}
 	return token, nil
 }
@@ -148,21 +149,21 @@ func GetPayloadFromToken(token string) (uuid.UUID, string, error) {
 	// Декодирование Base64url полезной нагрузки в формат JSON
 	payloadBytes, err := base64.RawURLEncoding.DecodeString(payload)
 	if err != nil {
-		return uuid.Nil, "", fmt.Errorf("error decoding payload: %v", err)
+		return uuid.Nil, "", fmt.Errorf("DecodeString: %w", err)
 	}
 
 	// Распаковка полезной нагрузки в структуру CustomClaims
 	var claims tokenClaims
 	err = json.Unmarshal(payloadBytes, &claims)
 	if err != nil {
-		return uuid.Nil, "", fmt.Errorf("error decoding payload: %v", err)
+		return uuid.Nil, "", fmt.Errorf("Unmarshal(): %w", err)
 	}
 
 	// Получение значения ролей
 	role := claims.Role
 	id, err := uuid.Parse(claims.Id)
 	if err != nil {
-		return uuid.Nil, "", fmt.Errorf("error decoding payload: %v", err)
+		return uuid.Nil, "", fmt.Errorf("Parse(): %w", err)
 	}
 	return id, role, nil
 }

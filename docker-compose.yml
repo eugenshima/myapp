@@ -1,13 +1,29 @@
-version: "3.9"
+version: "3"
 services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
   postgres:
     image: postgres:13.3
     environment:
-      POSTGRES_DB: "eugene"
+      POSTGRES_DB: "docker_base"
       POSTGRES_USER: "eugen"
       POSTGRES_PASSWORD: "ur2qly1ini"
-    volumes:
-      - .:/pgdata:/var/lib/postgresql/data
-      - .:/docker-entrypoint-initdb.d
     ports:
       - "5431:5432"
+  mongodb:
+    image: mongo:6.0.6
+    ports:
+      - "27018:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=
+      - MONGO_INITDB_ROOT_PASSWORD=
+  redis:
+    image: redis:6.0.16
+    ports:
+      - "6380:6379"   
