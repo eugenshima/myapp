@@ -24,13 +24,13 @@ func NewUserPsqlConnection(pool *pgxpool.Pool) *UserPsqlConnection {
 }
 
 // GetUser function executes a query, which select all rows from user table
-func (db *UserPsqlConnection) GetUser(ctx context.Context, login string) (uuid.UUID, []byte, string, error) {
-	var user model.User
+func (db *UserPsqlConnection) GetUser(ctx context.Context, login string) (*model.GetUser, error) {
+	var user model.GetUser
 	err := db.pool.QueryRow(ctx, "SELECT id, password, role FROM goschema.user WHERE login = $1", login).Scan(&user.ID, &user.Password, &user.Role)
 	if err != nil {
-		return uuid.Nil, nil, "", fmt.Errorf("QueryRow: %w", err)
+		return nil, fmt.Errorf("QueryRow: %w", err)
 	}
-	return user.ID, user.Password, user.Role, nil
+	return &user, nil
 }
 
 // Signup function executes a query, which insert a user to user table
@@ -47,11 +47,12 @@ func (db *UserPsqlConnection) Signup(ctx context.Context, entity *model.User) er
 
 // GetAll func executes a query, which returns all users
 func (db *UserPsqlConnection) GetAll(ctx context.Context) ([]*model.User, error) {
-	rows, err := db.pool.Query(ctx, `SELECT id, login, password, role, refreshtoken FROM goschema.user`)
+	rows, err := db.pool.Query(ctx, "SELECT id, login, password, role, refreshtoken FROM goschema.user")
 	if err != nil {
 		return nil, fmt.Errorf("Query(): %w", err)
 	}
 	defer rows.Close()
+
 	var users []*model.User
 	for rows.Next() {
 		var user model.User
@@ -88,6 +89,7 @@ func (db *UserPsqlConnection) GetRefreshToken(ctx context.Context, ID uuid.UUID)
 	return user.RefreshToken, nil
 }
 
+// GetRoleByID returns a role for the given user ID
 func (db *UserPsqlConnection) GetRoleByID(ctx context.Context, ID uuid.UUID) (string, error) {
 	var user model.User
 	err := db.pool.QueryRow(ctx, "SELECT role FROM goschema.user WHERE id=$1", ID).Scan(&user.Role)
@@ -95,4 +97,12 @@ func (db *UserPsqlConnection) GetRoleByID(ctx context.Context, ID uuid.UUID) (st
 		return "", fmt.Errorf("QueryRow: %w ", err)
 	}
 	return user.Role, nil
+}
+
+func (db *UserPsqlConnection) Delete(ctx context.Context, ID uuid.UUID) (uuid.UUID, error) {
+	bd, err := db.pool.Exec(ctx, "DELETE FROM goschema.user WHERE id=$1", ID)
+	if err != nil && !bd.Delete() {
+		return uuid.Nil, fmt.Errorf("Exec(): %w", err)
+	}
+	return ID, nil
 }

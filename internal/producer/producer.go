@@ -1,3 +1,4 @@
+// Package producer is a producer for redis stream
 package producer
 
 import (
@@ -14,10 +15,12 @@ type RedisProducer struct {
 	rdb *redis.Client
 }
 
+// NewProducer creates a new RedisProducer
 func NewProducer(rdb *redis.Client) *RedisProducer {
 	return &RedisProducer{rdb: rdb}
 }
 
+// RedisProducer creates a new redis stream entry
 func (rdbClient *RedisProducer) RedisProducer() {
 	identificator := 0
 	for {
@@ -39,7 +42,7 @@ func (rdbClient *RedisProducer) RedisProducer() {
 		if err != nil {
 			fmt.Println("Error adding message to Redis Stream:", err)
 		}
-
-		time.Sleep(2 * time.Second)
+		const TTL = 2
+		time.Sleep(TTL * time.Second)
 	}
 }

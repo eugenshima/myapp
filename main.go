@@ -8,10 +8,8 @@ import (
 
 	_ "github.com/eugenshima/myapp/docs"
 	cfgrtn "github.com/eugenshima/myapp/internal/config"
-	"github.com/eugenshima/myapp/internal/consumer"
 	"github.com/eugenshima/myapp/internal/handlers"
 	middlwr "github.com/eugenshima/myapp/internal/middleware"
-	"github.com/eugenshima/myapp/internal/producer"
 	"github.com/eugenshima/myapp/internal/repository"
 	"github.com/eugenshima/myapp/internal/service"
 	"github.com/go-playground/validator"
@@ -25,10 +23,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+// CustomValidator is a custom validator struct
 type CustomValidator struct {
 	validator *validator.Validate
 }
 
+// Validate func validates your model
 func (cv *CustomValidator) Validate(i interface{}) error {
 	if err := cv.validator.Struct(i); err != nil {
 		logrus.Errorf("Validator: %v", err)
@@ -36,6 +36,11 @@ func (cv *CustomValidator) Validate(i interface{}) error {
 	}
 	return nil
 }
+
+const (
+	pgx    = "pgx"
+	mongod = "mongo"
+)
 
 // NewMongo creates a connection to MongoDB server
 func NewMongo(env string) (*mongo.Client, error) {
@@ -76,6 +81,7 @@ func NewDBPsql(env string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
+// NewDBRedis function provides Connection with Redis database
 func NewDBRedis(env string) (*redis.Client, error) {
 	opt, err := redis.ParseURL(env)
 	if err != nil {
@@ -106,30 +112,29 @@ func main() {
 		return
 	}
 
-	ch := "pgx"
-
+	ch := mongod
 	// Initializing the Database Connector (MongoDB)
 	client, err := NewMongo(cfg.MongoDBAddr)
 	if err != nil {
-		echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("error creating database connection with MongoDB: %v", err))
-		return
+		err := echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("error creating database connection with MongoDB: %w", err))
+		e.Logger.Fatal(err)
 	}
 	// Initializing the Database Connector (PostgreSQL)
 	pool, err := NewDBPsql(cfg.PgxDBAddr)
 	if err != nil {
-		echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("error creating database connection with PostgreSQL: %v", err))
-		return
+		err := echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("error creating database connection with PostgreSQL: %w", err))
+		e.Logger.Fatal(err)
 	}
 	rdbClient, err := NewDBRedis(cfg.RedisDBAddr)
 	if err != nil {
-		echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("error creating database connection with Redis: %v", err))
-		return
+		err := echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("error creating database connection with Redis: %w", err))
+		e.Logger.Fatal(err)
 	}
 
 	var handlr *handlers.PersonHandler
 	var uhandlr *handlers.UserHandler
 	switch ch {
-	case "mongo":
+	case mongod:
 
 		// Person db mongodb
 		rps := repository.NewMongoDBConnection(client)
@@ -137,7 +142,12 @@ func main() {
 		srv := service.NewPersonService(rps, rdb)
 		handlr = handlers.NewPersonHandler(srv, validator.New())
 
-	case "pgx":
+		// User db mongodb
+		urps := repository.NewUserMongoDBConnection(client)
+		usrv := service.NewUserServiceImpl(urps)
+		uhandlr = handlers.NewUserHandlerImpl(usrv, validator.New())
+
+	case pgx:
 		// Person db pgx
 		rps := repository.NewPsqlConnection(pool)
 		rdb := repository.NewRedisConnection(rdbClient)
@@ -166,6 +176,7 @@ func main() {
 		user.POST("/signup", uhandlr.Signup)
 		user.GET("/getAll", uhandlr.GetAll)
 		user.POST("/refresh/:id", uhandlr.RefreshTokenPair)
+		user.DELETE("/delete/:id", uhandlr.Delete)
 
 		// Image requests
 		image := api.Group("/image")
@@ -175,11 +186,11 @@ func main() {
 	}
 	e.GET("/swagger/*", swg.WrapHandler)
 
-	redisProd := producer.NewProducer(rdbClient)
-	redisCons := consumer.NewConsumer(rdbClient)
-	// Redis Stream
-	go redisProd.RedisProducer()
-	go redisCons.RedisConsumer()
+	//redisProd := producer.NewProducer(rdbClient)
+	//redisCons := consumer.NewConsumer(rdbClient)
+	// // Redis Stream
+	//go redisProd.RedisProducer()
+	//go redisCons.RedisConsumer()
 
 	e.Logger.Fatal(e.Start(cfg.HTTPAddr))
 }

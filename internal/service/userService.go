@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	accessTokenTTL  = 1 * time.Hour
+	accessTokenTTL  = 24 * time.Hour
 	refreshTokenTTL = 72 * time.Hour
 )
 
@@ -30,24 +30,25 @@ type tokenClaims struct {
 
 // UserService is a struct that contains a reference to the repository interface
 type UserService struct {
-	rps UserRepositoryPsql
+	rps UserRepository
 }
 
 // NewUserServiceImpl creates a new service
-func NewUserServiceImpl(rps UserRepositoryPsql) *UserService {
+func NewUserServiceImpl(rps UserRepository) *UserService {
 	return &UserService{
 		rps: rps,
 	}
 }
 
-// UserRepositoryPsql interface, which contains repository methods
-type UserRepositoryPsql interface {
-	GetUser(ctx context.Context, login string) (uuid.UUID, []byte, string, error)
+// UserRepository interface, which contains repository methods
+type UserRepository interface {
+	GetUser(ctx context.Context, login string) (*model.GetUser, error)
 	Signup(context.Context, *model.User) error
 	GetAll(context.Context) ([]*model.User, error)
 	SaveRefreshToken(ctx context.Context, id uuid.UUID, token []byte) error
 	GetRefreshToken(ctx context.Context, id uuid.UUID) ([]byte, error)
 	GetRoleByID(ctx context.Context, id uuid.UUID) (string, error)
+	Delete(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
 }
 
 // GenerateTokens implements the UserServicePsql interface
@@ -58,17 +59,17 @@ func (db *UserService) GenerateTokens(ctx context.Context, login, password strin
 	}
 
 	// GetUser
-	id, pass, role, err := db.rps.GetUser(ctx, login)
+	user, err := db.rps.GetUser(ctx, login)
 	if err != nil {
 		return "", "", fmt.Errorf("GetUser: %w", err)
 	}
 	// CompareHashAndPassword
-	err = bcrypt.CompareHashAndPassword(pass, []byte(password))
+	err = bcrypt.CompareHashAndPassword(user.Password, []byte(password))
 	if err != nil {
 		return "", "", fmt.Errorf("CompareHashAndPassword: %w", err)
 	}
 	// GenerateAccessToken
-	accessToken, refreshToken, err = GenerateAccessAndRefreshTokens(cfg.SigningKey, role, id)
+	accessToken, refreshToken, err = GenerateAccessAndRefreshTokens(cfg.SigningKey, user.Role, user.ID)
 	if err != nil {
 		return "", "", fmt.Errorf("GenerateAccessAndRefreshTokens: %w", err)
 	}
@@ -78,7 +79,7 @@ func (db *UserService) GenerateTokens(ctx context.Context, login, password strin
 		return "", "", fmt.Errorf("HashRefreshToken: %w", err)
 	}
 	// SaveRefreshToken
-	err = db.rps.SaveRefreshToken(ctx, id, hashedRefreshToken)
+	err = db.rps.SaveRefreshToken(ctx, user.ID, hashedRefreshToken)
 	if err != nil {
 		return "", "", fmt.Errorf("SaveRefreshToken: %w", err)
 	}
@@ -94,6 +95,7 @@ func (db *UserService) GenerateTokens(ctx context.Context, login, password strin
 	return accessToken, refreshToken, nil
 }
 
+// RefreshTokenPair func returns a pair of refresh tokens
 func (db *UserService) RefreshTokenPair(ctx context.Context, accessToken, refreshToken string, id uuid.UUID) (access, refresh string, err error) {
 	cfg, err := config.NewConfig()
 	if err != nil {
@@ -236,4 +238,8 @@ func GenerateAccessAndRefreshTokens(key, role string, id uuid.UUID) (access, ref
 		return "", "", fmt.Errorf("SignedString(refresh): %w", err)
 	}
 	return access, refresh, err
+}
+
+func (db *UserService) Delete(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
+	return db.rps.Delete(ctx, id)
 }

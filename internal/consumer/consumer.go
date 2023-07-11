@@ -1,3 +1,4 @@
+// Package consumer is for redis stream consumer
 package consumer
 
 import (
@@ -8,14 +9,17 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// RedisConsumer is a struct for Redis Stream Consumer
 type RedisConsumer struct {
 	rdb *redis.Client
 }
 
+// NewConsumer creates a new Redis Stream Consumer
 func NewConsumer(rdb *redis.Client) *RedisConsumer {
 	return &RedisConsumer{rdb: rdb}
 }
 
+// RedisConsumer reading streams from redis
 func (rdbClient *RedisConsumer) RedisConsumer() {
 	for {
 		streams, err := rdbClient.rdb.XRead(context.Background(), &redis.XReadArgs{
@@ -42,7 +46,7 @@ func (rdbClient *RedisConsumer) RedisConsumer() {
 				}
 			}
 		}
-
-		time.Sleep(2 * time.Second)
+		const TTL = 2
+		time.Sleep(TTL * time.Second)
 	}
 }
