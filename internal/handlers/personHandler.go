@@ -7,7 +7,7 @@ import (
 
 	"github.com/eugenshima/myapp/internal/model"
 
-	"github.com/go-playground/validator"
+	vld "github.com/go-playground/validator"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -16,28 +16,30 @@ import (
 
 // PersonHandler struct contains service service.PersonService
 type PersonHandler struct {
-	srv       PersonService
-	validator *validator.Validate
+	srv PersonService
+	vl  *vld.Validate
 }
 
 // NewPersonHandler is a constructor
-func NewPersonHandler(srv PersonService, validator *validator.Validate) *PersonHandler {
+func NewPersonHandler(srv PersonService, vl *vld.Validate) *PersonHandler {
 	return &PersonHandler{
-		srv:       srv,
-		validator: validator,
+		srv: srv,
+		vl:  vl,
 	}
 }
+
+//go:generate mockgen -source=personHandler.go -destination=mocks/mock.go
 
 // PersonService interface, which contains Service methods
 type PersonService interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*model.Person, error)
 	GetAll(ctx context.Context) ([]*model.Person, error)
-	Delete(ctx context.Context, uuidString uuid.UUID) error
+	Delete(ctx context.Context, uuidString uuid.UUID) (uuid.UUID, error)
 	Create(ctx context.Context, entity *model.Person) (uuid.UUID, error)
-	Update(ctx context.Context, uuidString uuid.UUID, entity *model.Person) error
+	Update(ctx context.Context, uuidString uuid.UUID, entity *model.Person) (uuid.UUID, error)
 }
 
-// Create function receives Get request from client
+// GetByID function receives Get request from client
 // @Summary Get person by ID
 // @Security ApiKeyAuth
 // @Tags Person CRUD
@@ -56,7 +58,7 @@ func (handler *PersonHandler) GetByID(c echo.Context) error {
 	}
 	result, err := handler.srv.GetByID(c.Request().Context(), ID)
 	if err != nil {
-		logrus.Errorf("GetByID: %v", err)
+		logrus.WithFields(logrus.Fields{"id": ID}).Errorf("GetByID: %v", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("GetByID: %v", err))
 	}
 	return c.JSON(http.StatusOK, result)
@@ -98,12 +100,12 @@ func (handler *PersonHandler) Delete(c echo.Context) error {
 		logrus.Errorf("Parse: %v", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Parse: %v", err))
 	}
-	err = handler.srv.Delete(c.Request().Context(), id)
+	id, err = handler.srv.Delete(c.Request().Context(), id)
 	if err != nil {
-		logrus.Errorf("Delete: %v", err)
+		logrus.WithFields(logrus.Fields{"id": &id}).Errorf("Delete: %v", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Delete: %v", err))
 	}
-	return c.String(http.StatusOK, "delete request")
+	return c.String(http.StatusOK, fmt.Sprintf("Deleted ID: %v", id))
 }
 
 // Create function receives POST request from client
@@ -119,25 +121,25 @@ func (handler *PersonHandler) Delete(c echo.Context) error {
 // @Failure 404 {string} string "Error message"
 // @Router /api/person/insert [post]
 func (handler *PersonHandler) Create(c echo.Context) error {
-	var entity *model.Person
-	err := c.Bind(&entity)
+	var person *model.Person
+	err := c.Bind(&person)
 	if err != nil {
-		logrus.Errorf("Bind: %v", err)
+		logrus.WithFields(logrus.Fields{"person": &person}).Errorf("Bind: %v", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Bind: %v", err))
 	}
-	entity.ID = uuid.New()
+	person.ID = uuid.New()
 
-	err = c.Validate(entity)
+	err = c.Validate(person)
 	if err != nil {
-		logrus.Errorf("Validate: %v", err)
+		logrus.WithFields(logrus.Fields{"person": &person}).Errorf("Validate: %v", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Validate: %v", err))
 	}
-	id, err := handler.srv.Create(c.Request().Context(), entity)
+	id, err := handler.srv.Create(c.Request().Context(), person)
 	if err != nil {
-		logrus.Errorf("Create: %v", err)
+		logrus.WithFields(logrus.Fields{"person": &person}).Errorf("Create: %v", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Create: %v", err))
 	}
-	return c.String(http.StatusOK, fmt.Sprintf("inserted this ID: %v", id))
+	return c.String(http.StatusOK, fmt.Sprintf("inserted ID: %v", id))
 }
 
 // Update function receives PATCH request from client
@@ -157,7 +159,7 @@ func (handler *PersonHandler) Update(c echo.Context) error {
 	var person *model.Person
 	err := c.Bind(&person)
 	if err != nil {
-		logrus.Errorf("Bind: %v", err)
+		logrus.WithFields(logrus.Fields{"person": &person}).Errorf("Bind: %v", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Bind: %v", err))
 	}
 	id, err := uuid.Parse(c.Param("id"))
@@ -167,13 +169,13 @@ func (handler *PersonHandler) Update(c echo.Context) error {
 	}
 	err = c.Validate(person)
 	if err != nil {
-		logrus.Errorf("Validate: %v", err)
+		logrus.WithFields(logrus.Fields{"person": person}).Errorf("Validate: %v", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Validate: %v", err))
 	}
-	err = handler.srv.Update(c.Request().Context(), id, person)
+	id, err = handler.srv.Update(c.Request().Context(), id, person)
 	if err != nil {
-		logrus.Errorf("Update: %v", err)
+		logrus.WithFields(logrus.Fields{"id": id, "person": person}).Errorf("Update: %v", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Update: %v", err))
 	}
-	return c.String(http.StatusOK, "update request")
+	return c.String(http.StatusOK, fmt.Sprintf("Updated id --> %v", id))
 }

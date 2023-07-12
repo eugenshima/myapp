@@ -1,3 +1,4 @@
+// Package repository provides functions for interacting with a database
 package repository
 
 import (
@@ -12,18 +13,22 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// RedisConnection represents a redis connection
 type RedisConnection struct {
 	rdb *redis.Client
 }
 
+// NewRedisConnection creates a new connection
 func NewRedisConnection(rdb *redis.Client) *RedisConnection {
 	return &RedisConnection{rdb: rdb}
 }
 
+// const for Redis
 const (
 	TTL = 20 * time.Minute
 )
 
+// RedisGetByID func returns a Redis entity by ID
 func (rdb *RedisConnection) RedisGetByID(ctx context.Context, id uuid.UUID) (*model.Person, error) {
 	val, err := rdb.rdb.Get(ctx, id.String()).Result()
 	if err != nil {
@@ -34,8 +39,6 @@ func (rdb *RedisConnection) RedisGetByID(ctx context.Context, id uuid.UUID) (*mo
 		return nil, fmt.Errorf(" Expire: %w", err)
 	}
 	person := &model.Person{}
-
-	person.ID = id
 	err = json.Unmarshal([]byte(val), &person)
 	if err != nil {
 		return nil, fmt.Errorf(" Unmarshal: %w", err)
@@ -43,8 +46,13 @@ func (rdb *RedisConnection) RedisGetByID(ctx context.Context, id uuid.UUID) (*mo
 	return person, nil
 }
 
+// RedisSetByID func inserting entity to redis database
 func (rdb *RedisConnection) RedisSetByID(ctx context.Context, entity *model.Person) error {
-	val, err := json.Marshal(model.PersonRedis{Name: entity.Name, Age: entity.Age, IsHealthy: entity.IsHealthy})
+	val, err := json.Marshal(model.PersonRedis{
+		Name:      entity.Name,
+		Age:       entity.Age,
+		IsHealthy: entity.IsHealthy,
+	})
 	if err != nil {
 		return fmt.Errorf(" Marshal: %w", err)
 	}
@@ -55,9 +63,10 @@ func (rdb *RedisConnection) RedisSetByID(ctx context.Context, entity *model.Pers
 	return nil
 }
 
+// RedisDeleteByID func deleting entity from redis database
 func (rdb *RedisConnection) RedisDeleteByID(ctx context.Context, id uuid.UUID) error {
-	_, err := rdb.rdb.Del(ctx, id.String()).Result()
-	if err != nil {
+	res, err := rdb.rdb.Del(ctx, id.String()).Result()
+	if err != nil || res == 0 {
 		return fmt.Errorf(" Del: %w", err)
 	}
 	return nil

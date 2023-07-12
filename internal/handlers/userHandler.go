@@ -11,7 +11,7 @@ import (
 
 	"github.com/eugenshima/myapp/internal/model"
 
-	"github.com/go-playground/validator"
+	vl "github.com/go-playground/validator"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
@@ -20,16 +20,18 @@ import (
 // UserHandler struct represents a user handler implementation
 type UserHandler struct {
 	srv       UserService
-	validator *validator.Validate
+	validator *vl.Validate
 }
 
 // NewUserHandlerImpl creates a new Handler
-func NewUserHandlerImpl(srv UserService, validator *validator.Validate) *UserHandler {
+func NewUserHandlerImpl(srv UserService, validator *vl.Validate) *UserHandler {
 	return &UserHandler{
 		srv:       srv,
 		validator: validator,
 	}
 }
+
+//go:generate mockgen -source=userHandler.go -destination=mocks/userMock.go
 
 // UserService interface implementation
 type UserService interface {
@@ -37,6 +39,7 @@ type UserService interface {
 	Signup(ctx context.Context, entity *model.User) error
 	RefreshTokenPair(ctx context.Context, accessToken string, refreshToken string, id uuid.UUID) (string, string, error)
 	GetAll(ctx context.Context) ([]*model.User, error)
+	Delete(ctx context.Context, id uuid.UUID) error
 }
 
 // Login receives a GET request from client and returns a user(if exists)
@@ -53,13 +56,13 @@ func (handler *UserHandler) Login(c echo.Context) error {
 	input := model.Login{}
 	err := c.Bind(&input)
 	if err != nil {
-		logrus.Errorf("Bind: %v", err)
+		logrus.WithFields(logrus.Fields{"input": &input}).Errorf("Bind: %v", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Bind: %v", err))
 	}
 
 	err = c.Validate(input)
 	if err != nil {
-		logrus.Errorf("Validate: %v", err)
+		logrus.WithFields(logrus.Fields{"input": input}).Errorf("Validate: %v", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Validate: %v", err))
 	}
 	accessToken, refreshToken, err := handler.srv.GenerateTokens(c.Request().Context(), input.Login, input.Password)
@@ -106,7 +109,7 @@ func (handler *UserHandler) Signup(c echo.Context) error {
 	}
 	err = handler.srv.Signup(c.Request().Context(), person)
 	if err != nil {
-		logrus.Errorf("Signup: %v", err)
+		logrus.WithFields(logrus.Fields{"person": person}).Errorf("Signup: %v", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Signup: %v", err))
 	}
 
@@ -144,14 +147,14 @@ func (handler *UserHandler) RefreshTokenPair(c echo.Context) error {
 	reqBody := model.Tokens{}
 	err = c.Bind(&reqBody)
 	if err != nil {
-		logrus.Errorf("Parse: %v", err)
-		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Parse: %v", err))
+		logrus.Errorf("Bind: %v", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Bind: %v", err))
 	}
 
 	accessToken, refreshToken, err := handler.srv.RefreshTokenPair(c.Request().Context(), reqBody.AccessToken, reqBody.RefreshToken, id)
 	if err != nil {
-		logrus.Errorf("Parse: %v", err)
-		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Parse: %v", err))
+		logrus.WithFields(logrus.Fields{"reqBody.AccessToken": reqBody.AccessToken, "reqBody.RefreshToken": reqBody.RefreshToken, "id": id}).Errorf("RefreshTokenPair: %v", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("RefreshTokenPair: %v", err))
 	}
 	response := map[string]string{
 		"access_token":  accessToken,
@@ -160,10 +163,25 @@ func (handler *UserHandler) RefreshTokenPair(c echo.Context) error {
 	return c.JSON(http.StatusOK, response)
 }
 
+// Delete func receives a path variable abd return deleted id (if exists)
+func (handler *UserHandler) Delete(c echo.Context) error {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		logrus.Errorf("Parse: %v", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Parse: %v", err))
+	}
+	err = handler.srv.Delete(c.Request().Context(), id)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{"id": id}).Errorf("Delete: %v", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Delete: %v", err))
+	}
+	return c.String(http.StatusOK, "OK")
+}
+
 // image struct for downlodaing images from internet
 type image struct {
 	Filename string `json:"filename"`
-	Url      string `json:"url"`
+	URL      string `json:"url"`
 }
 
 // GetImage returns an image from database
@@ -201,20 +219,30 @@ func (handler *UserHandler) SetImage(c echo.Context) error {
 		logrus.Errorf("Bind: %v", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Bind: %v", err))
 	}
-	response, err := http.Get(img.Url)
+	response, err := http.Get(img.URL)
 	if err != nil {
 		logrus.Errorf("Get: %v", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Get: %v", err))
 	}
-	defer response.Body.Close()
-
-	filename := filepath.Join("/home/yauhenishymanski/MyProject/myapp/internal/images", img.Filename)
+	defer func() {
+		if err = response.Body.Close(); err != nil {
+			logrus.Errorf("Close: %v", err)
+		}
+	}()
+	rootpath := "/home/yauhenishymanski/MyProject/myapp"
+	basedir := "internal"
+	subdir := "images"
+	filename := filepath.Join(rootpath+string(filepath.Separator)+basedir+string(filepath.Separator)+subdir+string(filepath.Separator), img.Filename)
 	file, err := os.Create(filename)
 	if err != nil {
 		logrus.Errorf("Create: %v", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Create: %v", err))
 	}
-	defer file.Close()
+	defer func() {
+		if err = response.Body.Close(); err != nil {
+			logrus.Errorf("Close: %v", err)
+		}
+	}()
 
 	_, err = io.Copy(file, response.Body)
 	if err != nil {

@@ -17,10 +17,17 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// tokenClaims struct consists od JWT claims
 type tokenClaims struct {
 	Role string `json:"role"`
 	jwt.StandardClaims
 }
+
+// const for middlware
+const (
+	Bearer = "Bearer"
+	Admin  = "admin"
+)
 
 // UserIdentity makes an authorization through access token
 func UserIdentity() echo.MiddlewareFunc {
@@ -33,7 +40,7 @@ func UserIdentity() echo.MiddlewareFunc {
 			}
 			// checking for auth header format
 			headerParts := strings.Split(authHeader, " ")
-			if len(headerParts) != 2 || headerParts[0] != "Bearer" {
+			if len(headerParts) != 2 || headerParts[0] != Bearer {
 				return echo.NewHTTPError(http.StatusUnauthorized, "Invalid authorization header format")
 			}
 			// getting environment variable
@@ -60,7 +67,7 @@ func UserIdentity() echo.MiddlewareFunc {
 	}
 }
 
-// UserIdentity makes an authorization through access token
+// AdminIdentity makes an authorization through access token for admin only
 func AdminIdentity() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
@@ -71,7 +78,7 @@ func AdminIdentity() echo.MiddlewareFunc {
 			}
 			// checking for auth header format
 			headerParts := strings.Split(authHeader, " ")
-			if len(headerParts) != 2 || headerParts[0] != "Bearer" {
+			if len(headerParts) != 2 || headerParts[0] != Bearer {
 				return echo.NewHTTPError(http.StatusUnauthorized, "Invalid authorization header format")
 			}
 			// getting environment variable
@@ -90,7 +97,7 @@ func AdminIdentity() echo.MiddlewareFunc {
 			if err != nil {
 				return err
 			}
-			if role != "admin" {
+			if role != Admin {
 				return echo.NewHTTPError(http.StatusUnauthorized, "Invalid role")
 			}
 			// checking for token expiration
@@ -105,6 +112,7 @@ func AdminIdentity() echo.MiddlewareFunc {
 	}
 }
 
+// RoleValidation is used to validate the role
 func RoleValidation(tokenString string) (bool, error) {
 	parts := strings.Split(tokenString, ".")
 	payload := parts[1]
@@ -121,7 +129,7 @@ func RoleValidation(tokenString string) (bool, error) {
 	}
 
 	role := claims.Role
-	if role != "admin" {
+	if role != Admin {
 		return false, fmt.Errorf("invalid role: %w", err)
 	}
 	return true, nil

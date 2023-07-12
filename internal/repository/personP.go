@@ -26,7 +26,6 @@ func NewPsqlConnection(pool *pgxpool.Pool) *PsqlConnection {
 // GetByID function executes SQL request to select all rows, where id=Id
 func (db *PsqlConnection) GetByID(ctx context.Context, ID uuid.UUID) (*model.Person, error) {
 	var person model.Person
-
 	query := `SELECT id, name, age, is_healthy FROM goschema.person WHERE id=$1`
 
 	// Execute a SQL query on a database
@@ -61,12 +60,17 @@ func (db *PsqlConnection) GetAll(ctx context.Context) ([]*model.Person, error) {
 }
 
 // Delete function executes SQL reauest to delete row with certain uuid
-func (db *PsqlConnection) Delete(ctx context.Context, uuidString uuid.UUID) error {
+func (db *PsqlConnection) Delete(ctx context.Context, uuidString uuid.UUID) (uuid.UUID, error) {
+	// Execute a SQL query on a database
+	err := db.pool.QueryRow(ctx, `SELECT id FROM goschema.person WHERE id=$1`, uuidString).Scan(&uuidString)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("QueryRow(): %w", err)
+	}
 	bd, err := db.pool.Exec(ctx, "DELETE FROM goschema.person WHERE id=$1", uuidString)
 	if err != nil && !bd.Delete() {
-		return fmt.Errorf("Exec(): %w", err) // Returning error message
+		return uuid.Nil, fmt.Errorf("Exec(): %w", err) // Returning error message
 	}
-	return nil
+	return uuidString, nil
 }
 
 // Create function executes SQL request to insert person into database
@@ -84,10 +88,15 @@ func (db *PsqlConnection) Create(ctx context.Context, entity *model.Person) (uui
 }
 
 // Update function executes SQL request to update person data in database
-func (db *PsqlConnection) Update(ctx context.Context, uuidString uuid.UUID, person *model.Person) error {
+func (db *PsqlConnection) Update(ctx context.Context, uuidString uuid.UUID, person *model.Person) (uuid.UUID, error) {
+	// Execute a SQL query on a database
+	err := db.pool.QueryRow(ctx, `SELECT id FROM goschema.person WHERE id=$1`, uuidString).Scan(&uuidString)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("QueryRow(): %w", err)
+	}
 	bd, err := db.pool.Exec(ctx, "UPDATE goschema.person SET name=$1, age=$2, is_healthy=$3 WHERE id=$4", person.Name, person.Age, person.IsHealthy, uuidString)
 	if err != nil && !bd.Update() {
-		return fmt.Errorf("Exec(): %w", err) // Returning error message
+		return uuid.Nil, fmt.Errorf("Exec(): %w", err) // Returning error message
 	}
-	return nil
+	return uuidString, nil
 }

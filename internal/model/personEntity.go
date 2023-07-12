@@ -13,6 +13,7 @@ type Person struct {
 	IsHealthy bool      `json:"ishealthy" bson:"is_healthy"`
 }
 
+// PersonRedis struct for Person entity in Redis database
 type PersonRedis struct {
 	Name      string `json:"name" bson:"name" validate:"required"`
 	Age       int    `json:"age" bson:"age" validate:"required,min=0,max=140"`

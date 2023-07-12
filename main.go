@@ -5,6 +5,10 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	_ "github.com/eugenshima/myapp/docs"
 	cfgrtn "github.com/eugenshima/myapp/internal/config"
@@ -25,10 +29,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+// CustomValidator is a custom validator struct
 type CustomValidator struct {
 	validator *validator.Validate
 }
 
+// Validate func validates your model
 func (cv *CustomValidator) Validate(i interface{}) error {
 	if err := cv.validator.Struct(i); err != nil {
 		logrus.Errorf("Validator: %v", err)
@@ -36,6 +42,11 @@ func (cv *CustomValidator) Validate(i interface{}) error {
 	}
 	return nil
 }
+
+const (
+	pgx    = "pgx"
+	mongod = "mongo"
+)
 
 // NewMongo creates a connection to MongoDB server
 func NewMongo(env string) (*mongo.Client, error) {
@@ -76,6 +87,7 @@ func NewDBPsql(env string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
+// NewDBRedis function provides Connection with Redis database
 func NewDBRedis(env string) (*redis.Client, error) {
 	opt, err := redis.ParseURL(env)
 	if err != nil {
@@ -106,30 +118,29 @@ func main() {
 		return
 	}
 
-	ch := "pgx"
-
+	ch := pgx
 	// Initializing the Database Connector (MongoDB)
 	client, err := NewMongo(cfg.MongoDBAddr)
 	if err != nil {
-		echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("error creating database connection with MongoDB: %v", err))
-		return
+		err := echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("error creating database connection with MongoDB: %w", err))
+		e.Logger.Fatal(err)
 	}
 	// Initializing the Database Connector (PostgreSQL)
 	pool, err := NewDBPsql(cfg.PgxDBAddr)
 	if err != nil {
-		echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("error creating database connection with PostgreSQL: %v", err))
-		return
+		err := echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("error creating database connection with PostgreSQL: %w", err))
+		e.Logger.Fatal(err)
 	}
 	rdbClient, err := NewDBRedis(cfg.RedisDBAddr)
 	if err != nil {
-		echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("error creating database connection with Redis: %v", err))
-		return
+		err := echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("error creating database connection with Redis: %w", err))
+		e.Logger.Fatal(err)
 	}
 
 	var handlr *handlers.PersonHandler
 	var uhandlr *handlers.UserHandler
 	switch ch {
-	case "mongo":
+	case mongod:
 
 		// Person db mongodb
 		rps := repository.NewMongoDBConnection(client)
@@ -137,7 +148,13 @@ func main() {
 		srv := service.NewPersonService(rps, rdb)
 		handlr = handlers.NewPersonHandler(srv, validator.New())
 
-	case "pgx":
+		// User db mongodb
+		urps := repository.NewUserMongoDBConnection(client)
+		urdb := repository.NewUserRedisConnection(rdbClient)
+		usrv := service.NewUserServiceImpl(urps, urdb)
+		uhandlr = handlers.NewUserHandlerImpl(usrv, validator.New())
+
+	case pgx:
 		// Person db pgx
 		rps := repository.NewPsqlConnection(pool)
 		rdb := repository.NewRedisConnection(rdbClient)
@@ -146,7 +163,8 @@ func main() {
 
 		// User db pgx
 		urps := repository.NewUserPsqlConnection(pool)
-		usrv := service.NewUserServiceImpl(urps)
+		urdb := repository.NewUserRedisConnection(rdbClient)
+		usrv := service.NewUserServiceImpl(urps, urdb)
 		uhandlr = handlers.NewUserHandlerImpl(usrv, validator.New())
 	}
 
@@ -166,6 +184,7 @@ func main() {
 		user.POST("/signup", uhandlr.Signup)
 		user.GET("/getAll", uhandlr.GetAll)
 		user.POST("/refresh/:id", uhandlr.RefreshTokenPair)
+		user.DELETE("/delete/:id", uhandlr.Delete)
 
 		// Image requests
 		image := api.Group("/image")
@@ -177,9 +196,41 @@ func main() {
 
 	redisProd := producer.NewProducer(rdbClient)
 	redisCons := consumer.NewConsumer(rdbClient)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	stopCh = make(chan struct{})
+
 	// Redis Stream
-	go redisProd.RedisProducer()
-	go redisCons.RedisConsumer()
+	go redisProd.RedisProducer(ctx, stopCh)
+	go redisCons.RedisConsumer(ctx, stopCh)
+
+	waitForShutdown(cancel)
 
 	e.Logger.Fatal(e.Start(cfg.HTTPAddr))
+}
+
+var stopCh chan struct{}
+
+func waitForShutdown(cancel context.CancelFunc) {
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	// Запускаем горутину, которая ожидает сообщения в канале stopCh
+	go func() {
+		<-stopCh
+		cancel()
+	}()
+
+	// Ожидаем сигналы остановки или ввода в консоли
+	select {
+	case sig := <-signals:
+		fmt.Println("Received signal:", sig)
+		stopCh <- struct{}{}
+	case <-time.After(6 * time.Second):
+		fmt.Println("Timeout reached")
+		stopCh <- struct{}{}
+	}
+
+	cancel()
 }
