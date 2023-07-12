@@ -24,8 +24,8 @@ func NewUserPsqlConnection(pool *pgxpool.Pool) *UserPsqlConnection {
 }
 
 // GetUser function executes a query, which select all rows from user table
-func (db *UserPsqlConnection) GetUser(ctx context.Context, login string) (*model.GetUser, error) {
-	var user model.GetUser
+func (db *UserPsqlConnection) GetUser(ctx context.Context, login string) (*model.User, error) {
+	var user model.User
 	err := db.pool.QueryRow(ctx, "SELECT id, password, role FROM goschema.user WHERE login = $1", login).Scan(&user.ID, &user.Password, &user.Role)
 	if err != nil {
 		return nil, fmt.Errorf("QueryRow: %w", err)
@@ -47,7 +47,7 @@ func (db *UserPsqlConnection) Signup(ctx context.Context, entity *model.User) er
 
 // GetAll func executes a query, which returns all users
 func (db *UserPsqlConnection) GetAll(ctx context.Context) ([]*model.User, error) {
-	rows, err := db.pool.Query(ctx, "SELECT id, login, password, role, refreshtoken FROM goschema.user")
+	rows, err := db.pool.Query(ctx, "SELECT id, login, password, role, refresh_token FROM goschema.user")
 	if err != nil {
 		return nil, fmt.Errorf("Query(): %w", err)
 	}
@@ -72,7 +72,7 @@ func (db *UserPsqlConnection) SaveRefreshToken(ctx context.Context, ID uuid.UUID
 	if err != nil {
 		return fmt.Errorf("QueryRow: %w", err)
 	}
-	bd, err := db.pool.Exec(ctx, "UPDATE goschema.user SET refreshtoken=$1 WHERE id=$2", token, user.ID)
+	bd, err := db.pool.Exec(ctx, "UPDATE goschema.user SET refresh_token=$1 WHERE id=$2", token, user.ID)
 	if err != nil && !bd.Update() {
 		return fmt.Errorf("Exec(): %w", err)
 	}
@@ -82,7 +82,7 @@ func (db *UserPsqlConnection) SaveRefreshToken(ctx context.Context, ID uuid.UUID
 // GetRefreshToken returns a refresh token for the given user
 func (db *UserPsqlConnection) GetRefreshToken(ctx context.Context, ID uuid.UUID) ([]byte, error) {
 	var user model.User
-	err := db.pool.QueryRow(ctx, "SELECT refreshtoken FROM goschema.user WHERE id=$1", ID).Scan(&user.RefreshToken)
+	err := db.pool.QueryRow(ctx, "SELECT refresh_token FROM goschema.user WHERE id=$1", ID).Scan(&user.RefreshToken)
 	if err != nil {
 		return nil, fmt.Errorf("QueryRow: %w ", err)
 	}
@@ -99,10 +99,10 @@ func (db *UserPsqlConnection) GetRoleByID(ctx context.Context, ID uuid.UUID) (st
 	return user.Role, nil
 }
 
-func (db *UserPsqlConnection) Delete(ctx context.Context, ID uuid.UUID) (uuid.UUID, error) {
+func (db *UserPsqlConnection) Delete(ctx context.Context, ID uuid.UUID) error {
 	bd, err := db.pool.Exec(ctx, "DELETE FROM goschema.user WHERE id=$1", ID)
-	if err != nil && !bd.Delete() {
-		return uuid.Nil, fmt.Errorf("Exec(): %w", err)
+	if err != nil || bd.String() == "DELETE 0" {
+		return fmt.Errorf("Exec(): %w", err)
 	}
-	return ID, nil
+	return nil
 }

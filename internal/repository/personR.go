@@ -29,7 +29,7 @@ const (
 )
 
 // RedisGetByID func returns a Redis entity by ID
-func (rdb *RedisConnection) RedisGetByID(ctx context.Context, id *uuid.UUID) (*model.Person, error) {
+func (rdb *RedisConnection) RedisGetByID(ctx context.Context, id uuid.UUID) (*model.Person, error) {
 	val, err := rdb.rdb.Get(ctx, id.String()).Result()
 	if err != nil {
 		return nil, fmt.Errorf(" Get: %w", err)
@@ -65,8 +65,8 @@ func (rdb *RedisConnection) RedisSetByID(ctx context.Context, entity *model.Pers
 
 // RedisDeleteByID func deleting entity from redis database
 func (rdb *RedisConnection) RedisDeleteByID(ctx context.Context, id uuid.UUID) error {
-	_, err := rdb.rdb.Del(ctx, id.String()).Result()
-	if err != nil {
+	res, err := rdb.rdb.Del(ctx, id.String()).Result()
+	if err != nil || res == 0 {
 		return fmt.Errorf(" Del: %w", err)
 	}
 	return nil

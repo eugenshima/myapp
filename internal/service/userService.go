@@ -31,24 +31,34 @@ type tokenClaims struct {
 // UserService is a struct that contains a reference to the repository interface
 type UserService struct {
 	rps UserRepository
+	rdb UserRepositoryRedis
 }
 
 // NewUserServiceImpl creates a new service
-func NewUserServiceImpl(rps UserRepository) *UserService {
+func NewUserServiceImpl(rps UserRepository, rdb UserRepositoryRedis) *UserService {
 	return &UserService{
 		rps: rps,
+		rdb: rdb,
 	}
 }
 
 // UserRepository interface, which contains repository methods
 type UserRepository interface {
-	GetUser(ctx context.Context, login string) (*model.GetUser, error)
+	GetUser(ctx context.Context, login string) (*model.User, error)
 	Signup(context.Context, *model.User) error
 	GetAll(context.Context) ([]*model.User, error)
 	SaveRefreshToken(ctx context.Context, id uuid.UUID, token []byte) error
 	GetRefreshToken(ctx context.Context, id uuid.UUID) ([]byte, error)
 	GetRoleByID(ctx context.Context, id uuid.UUID) (string, error)
-	Delete(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
+	Delete(ctx context.Context, id uuid.UUID) error
+}
+
+type UserRepositoryRedis interface {
+	Set(ctx context.Context, user *model.User) error
+	Get(ctx context.Context, id uuid.UUID) (*model.User, error)
+	Delete(ctx context.Context, id uuid.UUID) error
+	GetRefreshToken(ctx context.Context, id uuid.UUID) ([]byte, error)
+	SetRefreshToken(ctx context.Context, id uuid.UUID, token []byte) error
 }
 
 // GenerateTokens implements the UserServicePsql interface
@@ -63,6 +73,7 @@ func (db *UserService) GenerateTokens(ctx context.Context, login, password strin
 	if err != nil {
 		return "", "", fmt.Errorf("GetUser: %w", err)
 	}
+
 	// CompareHashAndPassword
 	err = bcrypt.CompareHashAndPassword(user.Password, []byte(password))
 	if err != nil {
@@ -91,7 +102,12 @@ func (db *UserService) GenerateTokens(ctx context.Context, login, password strin
 	if !compID {
 		return "", "", fmt.Errorf("invalid token(campare error): %w", err)
 	}
-
+	user.RefreshToken = hashedRefreshToken
+	user.Login = login
+	err = db.rdb.Set(ctx, user)
+	if err != nil {
+		return "", "", fmt.Errorf("set: %w", err)
+	}
 	return accessToken, refreshToken, nil
 }
 
@@ -102,9 +118,12 @@ func (db *UserService) RefreshTokenPair(ctx context.Context, accessToken, refres
 		return "", "", fmt.Errorf("NewConfig: %w", err)
 	}
 	// Get RefreshToken
-	savedRefreshToken, err := db.rps.GetRefreshToken(ctx, id)
-	if err != nil {
-		return "", "", fmt.Errorf("GetRefreshToken: %w", err)
+	savedRefreshToken, err := db.rdb.GetRefreshToken(ctx, id) //from cache
+	if err != nil || savedRefreshToken == nil {
+		savedRefreshToken, err = db.rps.GetRefreshToken(ctx, id) // from database
+		if err != nil {
+			return "", "", fmt.Errorf("GetRefreshToken: %w", err)
+		}
 	}
 	// HashRefreshToken
 	hashedRefreshToken, err := HashRefreshToken(refreshToken)
@@ -116,7 +135,7 @@ func (db *UserService) RefreshTokenPair(ctx context.Context, accessToken, refres
 	if !isEqual {
 		return "", "", fmt.Errorf("CompareHashedTokens: %w", err)
 	}
-	id, role, err := mdlwr.GetPayloadFromToken(accessToken)
+	tokenID, role, err := mdlwr.GetPayloadFromToken(accessToken)
 	if err != nil {
 		return "", "", fmt.Errorf("GetPayloadFromToken: %w", err)
 	}
@@ -129,18 +148,36 @@ func (db *UserService) RefreshTokenPair(ctx context.Context, accessToken, refres
 		return "", "", fmt.Errorf("invalid token(campare error): %w", err)
 	}
 	// GenerateAccessAndRefreshTokens
-	access, refresh, err = GenerateAccessAndRefreshTokens(cfg.SigningKey, role, id)
+	access, refresh, err = GenerateAccessAndRefreshTokens(cfg.SigningKey, role, tokenID)
 	if err != nil {
 		return "", "", fmt.Errorf("GenerateAccessAndRefreshTokens: %w", err)
+	}
+	// HashRefreshToken
+	hashedRefreshToken, err = HashRefreshToken(refresh)
+	if err != nil {
+		return "", "", fmt.Errorf("HashRefreshToken: %w", err)
+	}
+	// SaveRefreshToken
+	err = db.rps.SaveRefreshToken(ctx, id, hashedRefreshToken)
+	if err != nil {
+		return "", "", fmt.Errorf("SaveRefreshToken: %w", err)
+	}
+	err = db.rdb.SetRefreshToken(ctx, id, hashedRefreshToken)
+	if err != nil {
+		return "", "", fmt.Errorf("SetRefreshToken: %w", err)
 	}
 	return access, refresh, nil
 }
 
 // Signup implements the UserServicePsql interface
-func (db *UserService) Signup(ctx context.Context, entity *model.User) error {
-	hashedPassword := hashPassword(entity.Password)
-	entity.Password = hashedPassword
-	return db.rps.Signup(ctx, entity)
+func (db *UserService) Signup(ctx context.Context, user *model.User) error {
+	hashedPassword := hashPassword(user.Password)
+	user.Password = hashedPassword
+	err := db.rdb.Set(ctx, user)
+	if err != nil {
+		return fmt.Errorf("set: %w", err)
+	}
+	return db.rps.Signup(ctx, user)
 }
 
 // GetAll implements the UserServicePsql interface
@@ -159,16 +196,9 @@ func hashPassword(password []byte) []byte {
 
 // HashRefreshToken func returns hashed refresh token using bcrypt algorithm
 func HashRefreshToken(refreshToken string) ([]byte, error) {
-	// Creating a new SHA-256 hash
 	hash := sha256.New()
-
-	// Writing a refresh token to a hash
 	hash.Write([]byte(refreshToken))
-
-	// Getting the hashed value as a slice of bytes
 	hashBytes := hash.Sum(nil)
-
-	// Convert slice of bytes to hexadecimal string
 	hashString := hex.EncodeToString(hashBytes)
 
 	return []byte(hashString), nil
@@ -240,6 +270,10 @@ func GenerateAccessAndRefreshTokens(key, role string, id uuid.UUID) (access, ref
 	return access, refresh, err
 }
 
-func (db *UserService) Delete(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
-	return db.rps.Delete(ctx, id)
+func (db *UserService) Delete(ctx context.Context, id uuid.UUID) error {
+	err := db.rdb.Delete(ctx, id)
+	if err != nil {
+		return db.rps.Delete(ctx, id)
+	}
+	return err
 }

@@ -23,8 +23,8 @@ func NewUserMongoDBConnection(client *mongo.Client) *UserMongoDBConnection {
 }
 
 // GetUser function executes a query, which select all rows from user table
-func (db *UserMongoDBConnection) GetUser(ctx context.Context, login string) (*model.GetUser, error) {
-	var user *model.GetUser
+func (db *UserMongoDBConnection) GetUser(ctx context.Context, login string) (*model.User, error) {
+	var user *model.User
 	collection := db.client.Database("my_mongo_base").Collection("user")
 	filter := bson.M{"login": login}
 	err := collection.FindOne(ctx, filter).Decode(&user)
@@ -110,15 +110,15 @@ func (db *UserMongoDBConnection) GetRoleByID(ctx context.Context, ID uuid.UUID) 
 }
 
 // Delete func deletes user from the database
-func (db *UserMongoDBConnection) Delete(ctx context.Context, ID uuid.UUID) (uuid.UUID, error) {
+func (db *UserMongoDBConnection) Delete(ctx context.Context, ID uuid.UUID) error {
 	collection := db.client.Database("my_mongo_base").Collection("user")
 	filter := bson.M{"_id": ID}
 	res, err := collection.DeleteOne(ctx, filter)
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("DeleteOne(): %v", err)
+		return fmt.Errorf("DeleteOne(): %v", err)
 	}
 	if res.DeletedCount == 0 {
-		return uuid.Nil, fmt.Errorf("DeleteOne(): %v", err)
+		return fmt.Errorf("DeleteOne(): %v", err)
 	}
-	return ID, nil
+	return nil
 }

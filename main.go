@@ -5,11 +5,17 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	_ "github.com/eugenshima/myapp/docs"
 	cfgrtn "github.com/eugenshima/myapp/internal/config"
+	"github.com/eugenshima/myapp/internal/consumer"
 	"github.com/eugenshima/myapp/internal/handlers"
 	middlwr "github.com/eugenshima/myapp/internal/middleware"
+	"github.com/eugenshima/myapp/internal/producer"
 	"github.com/eugenshima/myapp/internal/repository"
 	"github.com/eugenshima/myapp/internal/service"
 	"github.com/go-playground/validator"
@@ -112,7 +118,7 @@ func main() {
 		return
 	}
 
-	ch := mongod
+	ch := pgx
 	// Initializing the Database Connector (MongoDB)
 	client, err := NewMongo(cfg.MongoDBAddr)
 	if err != nil {
@@ -144,7 +150,8 @@ func main() {
 
 		// User db mongodb
 		urps := repository.NewUserMongoDBConnection(client)
-		usrv := service.NewUserServiceImpl(urps)
+		urdb := repository.NewUserRedisConnection(rdbClient)
+		usrv := service.NewUserServiceImpl(urps, urdb)
 		uhandlr = handlers.NewUserHandlerImpl(usrv, validator.New())
 
 	case pgx:
@@ -156,7 +163,8 @@ func main() {
 
 		// User db pgx
 		urps := repository.NewUserPsqlConnection(pool)
-		usrv := service.NewUserServiceImpl(urps)
+		urdb := repository.NewUserRedisConnection(rdbClient)
+		usrv := service.NewUserServiceImpl(urps, urdb)
 		uhandlr = handlers.NewUserHandlerImpl(usrv, validator.New())
 	}
 
@@ -186,11 +194,43 @@ func main() {
 	}
 	e.GET("/swagger/*", swg.WrapHandler)
 
-	//redisProd := producer.NewProducer(rdbClient)
-	//redisCons := consumer.NewConsumer(rdbClient)
-	// // Redis Stream
-	//go redisProd.RedisProducer()
-	//go redisCons.RedisConsumer()
+	redisProd := producer.NewProducer(rdbClient)
+	redisCons := consumer.NewConsumer(rdbClient)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	stopCh = make(chan struct{})
+
+	// Redis Stream
+	go redisProd.RedisProducer(ctx, stopCh)
+	go redisCons.RedisConsumer(ctx, stopCh)
+
+	waitForShutdown(cancel)
 
 	e.Logger.Fatal(e.Start(cfg.HTTPAddr))
+}
+
+var stopCh chan struct{}
+
+func waitForShutdown(cancel context.CancelFunc) {
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	// Запускаем горутину, которая ожидает сообщения в канале stopCh
+	go func() {
+		<-stopCh
+		cancel()
+	}()
+
+	// Ожидаем сигналы остановки или ввода в консоли
+	select {
+	case sig := <-signals:
+		fmt.Println("Received signal:", sig)
+		stopCh <- struct{}{}
+	case <-time.After(6 * time.Second):
+		fmt.Println("Timeout reached")
+		stopCh <- struct{}{}
+	}
+
+	cancel()
 }

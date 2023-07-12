@@ -20,33 +20,42 @@ func NewConsumer(rdb *redis.Client) *RedisConsumer {
 }
 
 // RedisConsumer reading streams from redis
-func (rdbClient *RedisConsumer) RedisConsumer() {
+func (rdbClient *RedisConsumer) RedisConsumer(ctx context.Context, stopCh <-chan struct{}) {
 	for {
-		streams, err := rdbClient.rdb.XRead(context.Background(), &redis.XReadArgs{
-			Streams: []string{"testStream", "0"},
-			Count:   1,
-			Block:   0,
-		}).Result()
-		if err != nil {
-			fmt.Println("Error reading messages from Redis Stream:", err)
-		}
-		for _, stream := range streams {
-			streamName := stream.Stream
-			messages := stream.Messages
+		select {
+		case <-ctx.Done():
+			fmt.Println("Goroutine Closed...")
+			return
+		case <-stopCh:
+			fmt.Println("Goroutine Closed...")
+			return
+		default:
+			streams, err := rdbClient.rdb.XRead(context.Background(), &redis.XReadArgs{
+				Streams: []string{"testStream", "0"},
+				Count:   1,
+				Block:   0,
+			}).Result()
+			if err != nil {
+				fmt.Println("Error reading messages from Redis Stream:", err)
+			}
+			for _, stream := range streams {
+				streamName := stream.Stream
+				messages := stream.Messages
 
-			for _, msg := range messages {
-				messageID := msg.ID
-				messageData := msg.Values
+				for _, msg := range messages {
+					messageID := msg.ID
+					messageData := msg.Values
 
-				fmt.Println("Received message from Redis Stream:", messageID, messageData)
+					fmt.Println("Received message from Redis Stream:", messageID, messageData)
 
-				_, err := rdbClient.rdb.XDel(context.Background(), streamName, messageID).Result()
-				if err != nil {
-					fmt.Println("Error deleting message from Redis Stream:", err)
+					_, err := rdbClient.rdb.XDel(context.Background(), streamName, messageID).Result()
+					if err != nil {
+						fmt.Println("Error deleting message from Redis Stream:", err)
+					}
 				}
 			}
+			const TTL = 2
+			time.Sleep(TTL * time.Second)
 		}
-		const TTL = 2
-		time.Sleep(TTL * time.Second)
 	}
 }

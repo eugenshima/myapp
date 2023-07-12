@@ -3,13 +3,16 @@ package repository
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"testing"
 
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/ory/dockertest"
+	"github.com/redis/go-redis/v9"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func SetupTestPgx() (*pgxpool.Pool, func(), error) {
@@ -63,6 +66,29 @@ func SetupTestMongoDB() (*mongo.Client, func(), error) {
 	return client, cleanup, nil
 }
 
+func SetupTestRedis() (*redis.Client, func(), error) {
+	pool, err := dockertest.NewPool("")
+	if err != nil {
+		log.Fatalf("Could not connect to docker: %s", err)
+	}
+
+	resource, err := pool.Run("redis", "latest", nil)
+	if err != nil {
+		log.Fatalf("Could not start resource: %s", err)
+	}
+
+	client, err := redis.ParseURL("redis://:@localhost:6379/1")
+	if err != nil {
+		log.Fatalf("Could not parse redis url: %s", err)
+	}
+	rdb := redis.NewClient(client)
+	cleanup := func() {
+		rdb.Close()
+		pool.Purge(resource)
+	}
+	return rdb, cleanup, nil
+}
+
 func TestMain(m *testing.M) {
 	dbpool, cleanupPgx, err := SetupTestPgx()
 	if err != nil {
@@ -72,6 +98,7 @@ func TestMain(m *testing.M) {
 	}
 	rps = NewPsqlConnection(dbpool)
 	urps = NewUserPsqlConnection(dbpool)
+
 	client, cleanupMongo, err := SetupTestMongoDB()
 	if err != nil {
 		fmt.Println(err)
@@ -80,17 +107,25 @@ func TestMain(m *testing.M) {
 	}
 	rpsM = NewMongoDBConnection(client)
 	urpsM = NewUserMongoDBConnection(client)
-	//TODO write redis connection + tests
-	//redisCli, cleanupRedis, err := SetupTestRedis()
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	cleanupRedis()
-	// 	os.Exit(1)
-	// }
-	// redisP = NewRedisConnection(redisCli)
+
+	rdb, cleanupRedis, err := SetupTestRedis()
+	if err != nil {
+		fmt.Println(err)
+		cleanupRedis()
+		os.Exit(1)
+	}
+	redisConnPerson = NewRedisConnection(rdb)
+	redisConnUser = NewUserRedisConnection(rdb)
 	exitVal := m.Run()
 	cleanupPgx()
 	cleanupMongo()
-	// cleanupRedis()
 	os.Exit(exitVal)
+}
+
+func hashPassword(password []byte) []byte {
+	hashedPassword, err := bcrypt.GenerateFromPassword(password, bcrypt.DefaultCost)
+	if err != nil {
+		return nil
+	}
+	return hashedPassword
 }

@@ -9,7 +9,7 @@ type User struct {
 	Login        string    `db:"login" bson:"login" validate:"required"`
 	Password     []byte    `db:"password" bson:"password" validate:"required"`
 	Role         string    `db:"role" bson:"role"`
-	RefreshToken []byte    `db:"refreshtoken" bson:"refreshtoken"`
+	RefreshToken []byte    `db:"refresh_token" bson:"refresh_token"`
 }
 
 // Login struct for user
@@ -37,4 +37,11 @@ type GetUser struct {
 type Tokens struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
+}
+
+type UserRedis struct {
+	Login        string `db:"login" bson:"login" validate:"required"`
+	Password     []byte `db:"password" bson:"password" validate:"required"`
+	Role         string `db:"role" bson:"role"`
+	RefreshToken []byte `db:"refresh_token" bson:"refresh_token"`
 }
