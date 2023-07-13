@@ -51,7 +51,6 @@ func TestPgxDeleteNil(t *testing.T) {
 	deletingTrash, err := rps.Delete(context.Background(), id)
 	require.NotNil(t, deletingTrash)
 	require.NoError(t, err)
-
 }
 
 func TestPgxGetAll(t *testing.T) {

@@ -42,7 +42,7 @@ func NewUserServiceImpl(rps UserRepository, rdb UserRepositoryRedis) *UserServic
 	}
 }
 
-// UserRepository interface, which contains repository methods
+// UserRepository interface, which contains psql/mongo repository methods
 type UserRepository interface {
 	GetUser(ctx context.Context, login string) (*model.User, error)
 	Signup(context.Context, *model.User) error
@@ -53,6 +53,7 @@ type UserRepository interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
+// UserRepositoryRedis interface, which contains redis repository methods
 type UserRepositoryRedis interface {
 	Set(ctx context.Context, user *model.User) error
 	Get(ctx context.Context, id uuid.UUID) (*model.User, error)
@@ -118,7 +119,7 @@ func (db *UserService) RefreshTokenPair(ctx context.Context, accessToken, refres
 		return "", "", fmt.Errorf("NewConfig: %w", err)
 	}
 	// Get RefreshToken
-	savedRefreshToken, err := db.rdb.GetRefreshToken(ctx, id) //from cache
+	savedRefreshToken, err := db.rdb.GetRefreshToken(ctx, id) // from cache
 	if err != nil || savedRefreshToken == nil {
 		savedRefreshToken, err = db.rps.GetRefreshToken(ctx, id) // from database
 		if err != nil {
@@ -270,6 +271,7 @@ func GenerateAccessAndRefreshTokens(key, role string, id uuid.UUID) (access, ref
 	return access, refresh, err
 }
 
+// Delete calls delete method from repository level
 func (db *UserService) Delete(ctx context.Context, id uuid.UUID) error {
 	err := db.rdb.Delete(ctx, id)
 	if err != nil {

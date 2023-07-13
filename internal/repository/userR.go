@@ -10,17 +10,17 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// RedisConnection represents a redis connection
+// UserRedisConnection represents a redis connection
 type UserRedisConnection struct {
 	rdb *redis.Client
 }
 
-// NewRedisConnection creates a new connection
+// NewUserRedisConnection creates a new connection
 func NewUserRedisConnection(rdb *redis.Client) *UserRedisConnection {
 	return &UserRedisConnection{rdb: rdb}
 }
 
-// RedisSetByID func inserting entity to redis database
+// Set func inserting entity to redis database
 func (rdb *UserRedisConnection) Set(ctx context.Context, user *model.User) error {
 	val, err := json.Marshal(model.UserRedis{
 		Login:        user.Login,
@@ -38,6 +38,7 @@ func (rdb *UserRedisConnection) Set(ctx context.Context, user *model.User) error
 	return nil
 }
 
+// Get func getting entity from redis database
 func (rdb *UserRedisConnection) Get(ctx context.Context, id uuid.UUID) (*model.User, error) {
 	val, err := rdb.rdb.Get(ctx, id.String()).Result()
 	if err != nil {
@@ -54,6 +55,8 @@ func (rdb *UserRedisConnection) Get(ctx context.Context, id uuid.UUID) (*model.U
 	}
 	return user, nil
 }
+
+// Delete deletes the user from the cache
 func (rdb *UserRedisConnection) Delete(ctx context.Context, id uuid.UUID) error {
 	res, err := rdb.rdb.Del(ctx, id.String()).Result()
 	if err != nil || res == 0 {
@@ -61,6 +64,8 @@ func (rdb *UserRedisConnection) Delete(ctx context.Context, id uuid.UUID) error 
 	}
 	return nil
 }
+
+// GetRefreshToken func gets a refresh token from given user
 func (rdb *UserRedisConnection) GetRefreshToken(ctx context.Context, id uuid.UUID) ([]byte, error) {
 	val, err := rdb.rdb.Get(ctx, id.String()).Result()
 	if err != nil {
@@ -78,6 +83,7 @@ func (rdb *UserRedisConnection) GetRefreshToken(ctx context.Context, id uuid.UUI
 	return user.RefreshToken, nil
 }
 
+// SetRefreshToken sets the refresh token for the user
 func (rdb *UserRedisConnection) SetRefreshToken(ctx context.Context, id uuid.UUID, token []byte) error {
 	val, err := rdb.rdb.Get(ctx, id.String()).Result()
 	if err != nil {

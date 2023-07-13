@@ -152,7 +152,7 @@ func main() {
 		urps := repository.NewUserMongoDBConnection(client)
 		urdb := repository.NewUserRedisConnection(rdbClient)
 		usrv := service.NewUserServiceImpl(urps, urdb)
-		uhandlr = handlers.NewUserHandlerImpl(usrv, validator.New())
+		uhandlr = handlers.NewUserHandler(usrv, validator.New())
 
 	case pgx:
 		// Person db pgx
@@ -165,7 +165,7 @@ func main() {
 		urps := repository.NewUserPsqlConnection(pool)
 		urdb := repository.NewUserRedisConnection(rdbClient)
 		usrv := service.NewUserServiceImpl(urps, urdb)
-		uhandlr = handlers.NewUserHandlerImpl(usrv, validator.New())
+		uhandlr = handlers.NewUserHandler(usrv, validator.New())
 	}
 
 	api := e.Group("/api")

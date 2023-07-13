@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"testing"
 
@@ -69,17 +68,17 @@ func SetupTestMongoDB() (*mongo.Client, func(), error) {
 func SetupTestRedis() (*redis.Client, func(), error) {
 	pool, err := dockertest.NewPool("")
 	if err != nil {
-		log.Fatalf("Could not connect to docker: %s", err)
+		return nil, nil, fmt.Errorf("could not construct pool: %w", err)
 	}
 
 	resource, err := pool.Run("redis", "latest", nil)
 	if err != nil {
-		log.Fatalf("Could not start resource: %s", err)
+		return nil, nil, fmt.Errorf("could not start resource: %w", err)
 	}
 
 	client, err := redis.ParseURL("redis://:@localhost:6379/1")
 	if err != nil {
-		log.Fatalf("Could not parse redis url: %s", err)
+		return nil, nil, fmt.Errorf("Could not parse redis url: %s", err)
 	}
 	rdb := redis.NewClient(client)
 	cleanup := func() {
