@@ -4,14 +4,22 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"testing"
 
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/ory/dockertest"
 	"github.com/redis/go-redis/v9"
+	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/crypto/bcrypt"
+)
+
+const (
+	pgUsername = "eugen"
+	pgPassword = "ur2qly1ini"
+	pgDB       = "eugen"
 )
 
 func SetupTestPgx() (*pgxpool.Pool, func(), error) {
@@ -20,13 +28,30 @@ func SetupTestPgx() (*pgxpool.Pool, func(), error) {
 		return nil, nil, fmt.Errorf("could not construct pool: %w", err)
 	}
 	resource, err := pool.Run("postgres", "latest", []string{
-		"POSTGRES_USER=eugen",
-		"POSTGRESQL_PASSWORD=ur2qly1ini",
-		"POSTGRES_DB=eugen"})
+		fmt.Sprintf("POSTGRES_USER=%s", pgUsername),
+		fmt.Sprintf("POSTGRESQL_PASSWORD=%s", pgPassword),
+		fmt.Sprintf("POSTGRES_DB=%s", pgDB)})
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not start resource: %w", err)
 	}
-	dbURL := "postgres://eugen:ur2qly1ini@localhost:5432/eugen"
+
+	cmd := exec.Command(
+		"flyway",
+		"-user="+pgUsername,
+		"-password="+pgPassword,
+		"-locations=filesystem:/home/yauhenishymanski/MyProject/myapp/migration",
+		"-url=jdbc:postgresql://localhost:5432/eugene",
+		"-connectRetries=10",
+		"-schemas=goschema",
+		"migrate",
+	)
+
+	err = cmd.Run()
+	if err != nil {
+		logrus.Fatalf("can't run migration: %s", err)
+	}
+
+	dbURL := "postgres://eugen:ur2qly1ini@localhost:5432/eugene"
 	cfg, err := pgxpool.ParseConfig(dbURL)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse dbURL: %w", err)
@@ -39,6 +64,7 @@ func SetupTestPgx() (*pgxpool.Pool, func(), error) {
 		dbpool.Close()
 		pool.Purge(resource)
 	}
+
 	return dbpool, cleanup, nil
 }
 

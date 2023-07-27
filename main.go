@@ -5,9 +5,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	_ "github.com/eugenshima/myapp/docs"
@@ -18,12 +15,12 @@ import (
 	"github.com/eugenshima/myapp/internal/producer"
 	"github.com/eugenshima/myapp/internal/repository"
 	"github.com/eugenshima/myapp/internal/service"
-	"github.com/go-playground/validator"
-	"github.com/redis/go-redis/v9"
-	"github.com/sirupsen/logrus"
 
+	"github.com/go-playground/validator"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/labstack/echo/v4"
+	"github.com/redis/go-redis/v9"
+	"github.com/sirupsen/logrus"
 	swg "github.com/swaggo/echo-swagger"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -87,7 +84,7 @@ func NewDBPsql(env string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-// NewDBRedis function provides Connection with Redis database
+//NewDBRedis function provides Connection with Redis database
 func NewDBRedis(env string) (*redis.Client, error) {
 	opt, err := redis.ParseURL(env)
 	if err != nil {
@@ -118,7 +115,7 @@ func main() {
 		return
 	}
 
-	ch := pgx
+	ch := mongod
 	// Initializing the Database Connector (MongoDB)
 	client, err := NewMongo(cfg.MongoDBAddr)
 	if err != nil {
@@ -196,41 +193,11 @@ func main() {
 
 	redisProd := producer.NewProducer(rdbClient)
 	redisCons := consumer.NewConsumer(rdbClient)
-
-	ctx, cancel := context.WithCancel(context.Background())
-
-	stopCh = make(chan struct{})
-
+	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
+	defer cancel()
 	// Redis Stream
-	go redisProd.RedisProducer(ctx, stopCh)
-	go redisCons.RedisConsumer(ctx, stopCh)
-
-	waitForShutdown(cancel)
+	go redisProd.RedisProducer(ctx)
+	go redisCons.RedisConsumer(ctx)
 
 	e.Logger.Fatal(e.Start(cfg.HTTPAddr))
-}
-
-var stopCh chan struct{}
-
-func waitForShutdown(cancel context.CancelFunc) {
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
-
-	// Запускаем горутину, которая ожидает сообщения в канале stopCh
-	go func() {
-		<-stopCh
-		cancel()
-	}()
-
-	// Ожидаем сигналы остановки или ввода в консоли
-	select {
-	case sig := <-signals:
-		fmt.Println("Received signal:", sig)
-		stopCh <- struct{}{}
-	case <-time.After(6 * time.Second):
-		fmt.Println("Timeout reached")
-		stopCh <- struct{}{}
-	}
-
-	cancel()
 }

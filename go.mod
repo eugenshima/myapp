@@ -2,7 +2,7 @@ module github.com/eugenshima/myapp
 
 go 1.18
 
-require github.com/labstack/echo/v4 v4.10.2 // direct
+require github.com/labstack/echo/v4 v4.4.0 // direct
 
 require (
 	github.com/google/uuid v1.3.0 //direct
@@ -47,7 +47,7 @@ require (
 	github.com/containerd/continuity v0.4.1 // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
-	github.com/golang-jwt/jwt v3.2.2+incompatible
+	github.com/golang-jwt/jwt v3.2.1+incompatible
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
 	github.com/jackc/pgconn v1.14.0 // indirect
 	github.com/jackc/pgio v1.0.0 // indirect
@@ -85,15 +85,17 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/redis/go-redis/v9 v9.0.5
-	github.com/swaggo/echo-swagger v1.4.0
+	github.com/swaggo/echo-swagger v1.3.0
 	github.com/swaggo/swag v1.16.1
 )
+
+require gotest.tools v2.2.0+incompatible
 
 require (
 	github.com/google/go-cmp v0.5.5 // indirect
 	github.com/gotestyourself/gotestyourself v2.2.0+incompatible // indirect
 	github.com/kr/pretty v0.3.0 // indirect
-	github.com/swaggo/files/v2 v2.0.0 // indirect
+	github.com/swaggo/files v0.0.0-20210815190702-a29dd2bc99b2 // indirect
+	//github.com/swaggo/files/v2 v2.0.0 // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
-	gotest.tools v2.2.0+incompatible // indirect
 )
