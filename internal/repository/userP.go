@@ -99,6 +99,7 @@ func (db *UserPsqlConnection) GetRoleByID(ctx context.Context, ID uuid.UUID) (st
 	return user.Role, nil
 }
 
+// Delete user deletes the given user from the database
 func (db *UserPsqlConnection) Delete(ctx context.Context, ID uuid.UUID) error {
 	bd, err := db.pool.Exec(ctx, "DELETE FROM goschema.user WHERE id=$1", ID)
 	if err != nil || bd.String() == "DELETE 0" {

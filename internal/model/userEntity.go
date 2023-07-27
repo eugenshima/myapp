@@ -39,6 +39,7 @@ type Tokens struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+// UserRedis struct for cached user
 type UserRedis struct {
 	Login        string `db:"login" bson:"login" validate:"required"`
 	Password     []byte `db:"password" bson:"password" validate:"required"`

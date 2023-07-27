@@ -23,15 +23,13 @@ type UserHandler struct {
 	validator *vl.Validate
 }
 
-// NewUserHandlerImpl creates a new Handler
-func NewUserHandlerImpl(srv UserService, validator *vl.Validate) *UserHandler {
+// NewUserHandler creates a new Handler
+func NewUserHandler(srv UserService, validator *vl.Validate) *UserHandler {
 	return &UserHandler{
 		srv:       srv,
 		validator: validator,
 	}
 }
-
-//go:generate mockgen -source=userHandler.go -destination=mocks/userMock.go
 
 // UserService interface implementation
 type UserService interface {

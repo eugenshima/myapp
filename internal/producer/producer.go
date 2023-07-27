@@ -21,14 +21,14 @@ func NewProducer(rdb *redis.Client) *RedisProducer {
 }
 
 // RedisProducer creates a new redis stream entry
-func (rdbClient *RedisProducer) RedisProducer(ctx context.Context, stopCh <-chan struct{}) {
+func (rdbClient *RedisProducer) RedisProducer(ctx context.Context) {
 	identificator := 0
 	for {
 		select {
 		case <-ctx.Done():
 			fmt.Println("Goroutine Closed...")
 			return
-		case <-stopCh:
+		case <-time.After(5 * time.Second):
 			fmt.Println("Goroutine Closed...")
 			return
 		default:

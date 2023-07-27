@@ -28,7 +28,7 @@ func NewPersonHandler(srv PersonService, vl *vld.Validate) *PersonHandler {
 	}
 }
 
-//go:generate mockgen -source=personHandler.go -destination=mocks/mock.go
+//go:generate mockery --name=PersonService --case=underscore --output=./mocks
 
 // PersonService interface, which contains Service methods
 type PersonService interface {

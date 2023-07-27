@@ -12,17 +12,6 @@ import (
 
 var urpsM *UserMongoDBConnection
 
-var mongotestLoginUser = model.Login{
-	Login:    "test",
-	Password: "test",
-}
-
-var mongotestSignupUser = model.Signup{
-	Login:    "test",
-	Password: "test",
-	Role:     "user",
-}
-
 var mongotestUser = model.User{
 	ID:           uuid.New(),
 	Login:        "test",
