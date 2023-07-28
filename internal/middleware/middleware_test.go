@@ -17,7 +17,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func setupMiddlware() (e *echo.Echo, cfg *cfgration.Config, tokenString string, invalidTokenString string, err error) {
+func setupMiddlware() (e *echo.Echo, cfg *cfgration.Config, tokenString, invalidTokenString string, err error) {
 	e = echo.New()
 	cfg, err = cfgration.NewConfig()
 	if err != nil {

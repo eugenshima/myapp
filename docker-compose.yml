@@ -15,15 +15,15 @@ services:
       POSTGRES_USER: "eugen"
       POSTGRES_PASSWORD: "ur2qly1ini"
     ports:
-      - "5431:5432"
+      - "5432:5432"
   mongodb:
     image: mongo:6.0.6
     ports:
-      - "27016:27017"
+      - "27017:27017"
     environment:
       - MONGO_INITDB_ROOT_USERNAME=eugenshima
       - MONGO_INITDB_ROOT_PASSWORD=ur2qly1ini
-  # redis:
-  #   image: redis:6.0.16
-  #   ports:
-  #     - "6379:6379"  
+  redis:
+    image: redis:6.0.16
+    ports:
+      - "6379:6379"  

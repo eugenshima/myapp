@@ -56,6 +56,7 @@ func (db *PsqlConnection) GetAll(ctx context.Context) ([]*model.Person, error) {
 		}
 		results = append(results, person)
 	}
+	fmt.Println(results)
 	return results, rows.Err()
 }
 

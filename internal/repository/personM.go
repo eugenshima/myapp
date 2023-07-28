@@ -69,6 +69,7 @@ func (db *MongoDBConnection) GetByID(ctx context.Context, ID uuid.UUID) (*model.
 }
 
 // GetAll function executes "db.person.FindOne()" command
+//nolint:dupl
 func (db *MongoDBConnection) GetAll(ctx context.Context) ([]*model.Person, error) {
 	collection := db.client.Database("my_mongo_base").Collection("person")
 	filter := bson.M{}

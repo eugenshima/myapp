@@ -64,7 +64,11 @@ require (
 	golang.org/x/tools v0.11.0 // indirect
 )
 
-require github.com/cenkalti/backoff v2.2.1+incompatible // indirect
+require (
+	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
+	github.com/golang/protobuf v1.5.3 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20230525234030-28d5490b6b19 // indirect
+)
 
 require (
 	github.com/caarlos0/env/v9 v9.0.0
@@ -89,10 +93,14 @@ require (
 	github.com/swaggo/swag v1.16.1
 )
 
-require gotest.tools v2.2.0+incompatible
+require (
+	google.golang.org/grpc v1.57.0
+	google.golang.org/protobuf v1.30.0
+	gotest.tools v2.2.0+incompatible
+)
 
 require (
-	github.com/google/go-cmp v0.5.5 // indirect
+	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/gotestyourself/gotestyourself v2.2.0+incompatible // indirect
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/swaggo/files v0.0.0-20210815190702-a29dd2bc99b2 // indirect

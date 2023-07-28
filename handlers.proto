@@ -1,0 +1,58 @@
+syntax = "proto3";
+option go_package = "github.com/eugenshima/myapp";
+
+message Person {
+    string id = 1;
+    string name = 2;
+    int64 age = 3;
+    bool isHealthy = 4;
+}
+
+// GetByID Request/Response
+message GetByIDRequest{
+    string id = 1; 
+}
+message GetByIDResponse {
+    Person person = 1;
+}
+
+// GetAll Request/Response
+message GetAllRequest {
+
+}
+message GetAllResponse {
+    repeated Person person = 1;
+}
+
+// Delete Request/Response
+message DeleteRequest {
+    string id = 1;
+}
+message DeleteResponse {
+  string id = 1;
+}
+
+// Create Request/Response
+message CreateRequest {
+    Person person = 1;
+}
+message CreateResponse {
+    string id = 1;
+}
+
+// Update Request/Response
+message UpdateRequest {
+   string id = 1;
+   Person person = 2;
+}
+message UpdateResponse {
+    string id = 1;
+}
+
+service personHandler {
+    rpc GetByID(GetByIDRequest) returns (GetByIDResponse);
+    rpc GetAll(GetAllRequest) returns (GetAllResponse);
+    rpc Delete(DeleteRequest) returns (DeleteResponse);
+    rpc Create(CreateRequest) returns (CreateResponse);
+    rpc Update(UpdateRequest) returns (UpdateResponse);
+}
