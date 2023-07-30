@@ -133,6 +133,7 @@ func main() {
 		logrus.Fatal(err)
 	}
 	var handlr *handlers.GRPCPersonHandler
+	var uhandlr *handlers.GRPCUserHandler
 	switch ch {
 	case mongod:
 
@@ -155,10 +156,11 @@ func main() {
 		srv := service.NewPersonService(rps, rdb)
 		handlr = handlers.NewGRPCPersonHandler(srv)
 
-		// User db pgx
-		// urps := repository.NewUserPsqlConnection(pool)
-		// urdb := repository.NewUserRedisConnection(rdbClient)
-		// usrv := service.NewUserServiceImpl(urps, urdb)
+		//User db pgx
+		urps := repository.NewUserPsqlConnection(pool)
+		urdb := repository.NewUserRedisConnection(rdbClient)
+		usrv := service.NewUserServiceImpl(urps, urdb)
+		uhandlr = handlers.NewGRPCUserHandler(usrv)
 		// uhandlr = handlers.NewUserHandler(usrv, validator.New())
 	}
 	lis, err := net.Listen("tcp", ":8080")
@@ -168,7 +170,9 @@ func main() {
 	serverRegistrar := grpc.NewServer()
 	//service := &handlers.NewGRPCPersonHandler(srv)
 	proto.RegisterPersonHandlerServer(serverRegistrar, handlr)
+	proto.RegisterUserHandlerServer(serverRegistrar, uhandlr)
 	err = serverRegistrar.Serve(lis)
+	fmt.Println("service started successfully")
 	if err != nil {
 		logrus.Fatalf("cannot start server: %s", err)
 	}

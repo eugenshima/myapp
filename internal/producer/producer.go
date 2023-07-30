@@ -54,5 +54,4 @@ func (rdbClient *RedisProducer) RedisProducer(ctx context.Context) {
 			time.Sleep(TTL * time.Second)
 		}
 	}
-
 }

@@ -9,7 +9,7 @@ import (
 type Person struct {
 	ID        uuid.UUID `json:"id" bson:"_id"`
 	Name      string    `json:"name" bson:"name" validate:"required"`
-	Age       int       `json:"age" bson:"age" validate:"required,min=0,max=140"`
+	Age       int64     `json:"age" bson:"age" validate:"required,min=0,max=140"`
 	IsHealthy bool      `json:"ishealthy" bson:"is_healthy"`
 }
 

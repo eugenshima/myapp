@@ -6,5 +6,3 @@ protogen:
     --go-grpc_opt=paths=source_relative \
     handlers.proto
 
-run:
-    go run main.go

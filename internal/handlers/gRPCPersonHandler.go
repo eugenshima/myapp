@@ -31,15 +31,22 @@ type GRPCPersonService interface {
 	Update(ctx context.Context, uuidString uuid.UUID, entity *model.Person) (uuid.UUID, error)
 }
 
-type GRPCServer struct {
-}
-
 func (s *GRPCPersonHandler) GetByID(ctx context.Context, req *protos.GetByIDRequest) (*protos.GetByIDResponse, error) {
+	ID, err := uuid.Parse(req.Id)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{"id": req.Id}).Errorf("GetByID: %v", err)
+		return nil, err
+	}
+	result, err := s.srv.GetByID(ctx, ID)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{"id": ID}).Errorf("GetByID: %v", err)
+		return nil, err
+	}
 	person := &protos.Person{
-		Id:        req.Id,
-		Name:      "eugen",
-		Age:       21,
-		IsHealthy: false,
+		Id:        ID.String(),
+		Name:      result.Name,
+		Age:       int64(result.Age),
+		IsHealthy: result.IsHealthy,
 	}
 	return &protos.GetByIDResponse{Person: person}, nil
 }
@@ -63,34 +70,50 @@ func (s *GRPCPersonHandler) GetAll(ctx context.Context, req *protos.GetAllReques
 	return &protos.GetAllResponse{Person: res}, nil
 }
 
-func (s *GRPCPersonHandler) Delete(ctx context.Context, in *protos.DeleteRequest) (*protos.DeleteResponse, error) {
+func (s *GRPCPersonHandler) Delete(ctx context.Context, req *protos.DeleteRequest) (*protos.DeleteResponse, error) {
+	ID, err := uuid.Parse(req.Id)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{"id": req.Id}).Errorf("GetByID: %v", err)
+		return nil, err
+	}
+	deletedId, err := s.srv.Delete(ctx, ID)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{"id": &deletedId}).Errorf("Delete: %v", err)
+		return nil, err
+	}
 	return &protos.DeleteResponse{
-		Id: "delete working",
+		Id: deletedId.String(),
 	}, nil
 }
 
 func (s *GRPCPersonHandler) Create(ctx context.Context, req *protos.CreateRequest) (*protos.CreateResponse, error) {
-	var person *model.Person
-	var err error
-	person.ID, err = uuid.Parse(req.Person.Id) // TODO: fix gub w/ nil pointer dereference
-	if err != nil {
-		logrus.WithFields(logrus.Fields{"person": &person}).Errorf("Create: %v", err)
-		return nil, err
+	newPerson := model.Person{
+		ID:        uuid.New(),
+		Name:      req.Person.Name,
+		Age:       req.Person.Age,
+		IsHealthy: req.Person.IsHealthy,
 	}
-	person.Name = req.Person.Name
-	person.Age = int(req.Person.Age)
-	person.IsHealthy = req.Person.IsHealthy
 
-	id, err := s.srv.Create(ctx, person)
+	id, err := s.srv.Create(ctx, &newPerson)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{"person": &person}).Errorf("Create: %v", err)
+		logrus.WithFields(logrus.Fields{"person": newPerson}).Errorf("Create: %v", err)
 		return nil, err
 	}
+
 	return &protos.CreateResponse{Id: id.String()}, nil
 }
 
-func (s *GRPCPersonHandler) Update(context.Context, *protos.UpdateRequest) (*protos.UpdateResponse, error) {
-	return &protos.UpdateResponse{
-		Id: "update working",
-	}, nil
+func (s *GRPCPersonHandler) Update(ctx context.Context, req *protos.UpdateRequest) (*protos.UpdateResponse, error) {
+	updatePerson := model.Person{
+		ID:        uuid.MustParse(req.Person.Id),
+		Name:      req.Person.Name,
+		Age:       req.Person.Age,
+		IsHealthy: req.Person.IsHealthy,
+	}
+	id, err := s.srv.Update(ctx, updatePerson.ID, &updatePerson)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{"id": id, "person": updatePerson}).Errorf("Update: %v", err)
+		return nil, err
+	}
+	return &protos.UpdateResponse{Id: id.String()}, nil
 }

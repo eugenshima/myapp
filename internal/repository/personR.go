@@ -51,7 +51,7 @@ func (rdb *RedisConnection) RedisGetByID(ctx context.Context, id uuid.UUID) (*mo
 func (rdb *RedisConnection) RedisSetByID(ctx context.Context, entity *model.Person) error {
 	val, err := json.Marshal(model.PersonRedis{
 		Name:      entity.Name,
-		Age:       entity.Age,
+		Age:       int(entity.Age),
 		IsHealthy: entity.IsHealthy,
 	})
 	if err != nil {
