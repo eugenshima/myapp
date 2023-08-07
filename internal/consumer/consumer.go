@@ -19,6 +19,8 @@ func NewConsumer(rdb *redis.Client) *RedisConsumer {
 	return &RedisConsumer{rdb: rdb}
 }
 
+const timeDur = 5 * time.Second
+
 // RedisConsumer reading streams from redis
 func (rdbClient *RedisConsumer) RedisConsumer(ctx context.Context) {
 	for {
@@ -26,7 +28,7 @@ func (rdbClient *RedisConsumer) RedisConsumer(ctx context.Context) {
 		case <-ctx.Done():
 			fmt.Println("Goroutine Closed...")
 			return
-		case <-time.After(5 * time.Second):
+		case <-time.After(timeDur * time.Second):
 			fmt.Println("Goroutine Closed...")
 			return
 		default:

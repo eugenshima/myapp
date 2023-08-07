@@ -39,7 +39,8 @@ func (rdb *UserRedisConnection) Set(ctx context.Context, user *model.User) error
 }
 
 // Get func getting entity from redis database
-//nolint:dupl
+//
+//nolint:dupl //needed
 func (rdb *UserRedisConnection) Get(ctx context.Context, id uuid.UUID) (*model.User, error) {
 	val, err := rdb.rdb.Get(ctx, id.String()).Result()
 	if err != nil {

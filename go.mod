@@ -68,6 +68,7 @@ require (
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230525234030-28d5490b6b19 // indirect
+	gotest.tools v2.2.0+incompatible // indirect
 )
 
 require (
@@ -89,21 +90,17 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/redis/go-redis/v9 v9.0.5
-	github.com/swaggo/echo-swagger v1.3.0
 	github.com/swaggo/swag v1.16.1
 )
 
 require (
 	google.golang.org/grpc v1.57.0
 	google.golang.org/protobuf v1.30.0
-	gotest.tools v2.2.0+incompatible
 )
 
 require (
-	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/gotestyourself/gotestyourself v2.2.0+incompatible // indirect
 	github.com/kr/pretty v0.3.0 // indirect
-	github.com/swaggo/files v0.0.0-20210815190702-a29dd2bc99b2 // indirect
 	//github.com/swaggo/files/v2 v2.0.0 // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 )

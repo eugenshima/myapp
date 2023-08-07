@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"time"
 
 	_ "github.com/eugenshima/myapp/docs"
 	cfgrtn "github.com/eugenshima/myapp/internal/config"
+	"github.com/eugenshima/myapp/internal/consumer"
 	"github.com/eugenshima/myapp/internal/handlers"
+	"github.com/eugenshima/myapp/internal/producer"
 	"github.com/eugenshima/myapp/internal/repository"
 	"github.com/eugenshima/myapp/internal/service"
 	"google.golang.org/grpc"
@@ -105,9 +108,9 @@ func NewDBRedis(env string) (*redis.Client, error) {
 // @securityDefinitions.apikey ApiKeyAuth
 // @in header
 // @name Authorization
+//
+// nolint:funlen // required
 func main() {
-	//e := echo.New()
-	//e.Validator = &CustomValidator{validator: validator.New()}
 	cfg, err := cfgrtn.NewConfig()
 	if err != nil {
 		fmt.Printf("Error extracting env variables: %v", err)
@@ -144,10 +147,10 @@ func main() {
 		handlr = handlers.NewGRPCPersonHandler(srv)
 
 		// User db mongodb
-		// urps := repository.NewUserMongoDBConnection(client)
-		// urdb := repository.NewUserRedisConnection(rdbClient)
-		// usrv := service.NewUserServiceImpl(urps, urdb)
-		// uhandlr = handlers.NewUserHandler(usrv, validator.New())
+		urps := repository.NewUserMongoDBConnection(client)
+		urdb := repository.NewUserRedisConnection(rdbClient)
+		usrv := service.NewUserServiceImpl(urps, urdb)
+		uhandlr = handlers.NewGRPCUserHandler(usrv)
 
 	case pgx:
 		// Person db pgx
@@ -156,19 +159,17 @@ func main() {
 		srv := service.NewPersonService(rps, rdb)
 		handlr = handlers.NewGRPCPersonHandler(srv)
 
-		//User db pgx
+		// User db pgx
 		urps := repository.NewUserPsqlConnection(pool)
 		urdb := repository.NewUserRedisConnection(rdbClient)
 		usrv := service.NewUserServiceImpl(urps, urdb)
 		uhandlr = handlers.NewGRPCUserHandler(usrv)
-		// uhandlr = handlers.NewUserHandler(usrv, validator.New())
 	}
-	lis, err := net.Listen("tcp", ":8080")
+	lis, err := net.Listen("tcp", "127.0.0.1:8080")
 	if err != nil {
 		logrus.Fatalf("cannot create listener: %s", err)
 	}
 	serverRegistrar := grpc.NewServer()
-	//service := &handlers.NewGRPCPersonHandler(srv)
 	proto.RegisterPersonHandlerServer(serverRegistrar, handlr)
 	proto.RegisterUserHandlerServer(serverRegistrar, uhandlr)
 	err = serverRegistrar.Serve(lis)
@@ -176,40 +177,12 @@ func main() {
 	if err != nil {
 		logrus.Fatalf("cannot start server: %s", err)
 	}
+
+	redisProd := producer.NewProducer(rdbClient)
+	redisCons := consumer.NewConsumer(rdbClient)
+	ctx, cancel := context.WithTimeout(context.Background(), timeOut*time.Second)
+	defer cancel()
+	// Redis Stream
+	go redisProd.RedisProducer(ctx)
+	go redisCons.RedisConsumer(ctx)
 }
-
-// api := e.Group("/api")
-// {
-// 	// Person Api
-// 	person := api.Group("/person")
-// 	person.POST("/insert", handlr.Create, middlwr.AdminIdentity())
-// 	person.GET("/getAll", handlr.GetAll, middlwr.UserIdentity())
-// 	person.GET("/getById/:id", handlr.GetByID, middlwr.UserIdentity())
-// 	person.PATCH("/update/:id", handlr.Update, middlwr.AdminIdentity())
-// 	person.DELETE("/delete/:id", handlr.Delete, middlwr.AdminIdentity())
-
-// 	// User Api
-// 	user := api.Group("/user")
-// 	user.POST("/login", uhandlr.Login)
-// 	user.POST("/signup", uhandlr.Signup)
-// 	user.GET("/getAll", uhandlr.GetAll)
-// 	user.POST("/refresh/:id", uhandlr.RefreshTokenPair)
-// 	user.DELETE("/delete/:id", uhandlr.Delete)
-
-// 	// Image requests
-// 	image := api.Group("/image")
-// 	image.Use(middlwr.AdminIdentity())
-// 	image.GET("/get/:name", uhandlr.GetImage)
-// 	image.POST("/set", uhandlr.SetImage)
-// }
-// e.GET("/swagger/*", swg.WrapHandler)
-
-// redisProd := producer.NewProducer(rdbClient)
-// redisCons := consumer.NewConsumer(rdbClient)
-// ctx, cancel := context.WithTimeout(context.Background(), timeOut*time.Second)
-// defer cancel()
-// // Redis Stream
-// go redisProd.RedisProducer(ctx)
-// go redisCons.RedisConsumer(ctx)
-
-//e.Logger.Fatal(e.Start(cfg.HTTPAddr))

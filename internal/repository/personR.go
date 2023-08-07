@@ -29,7 +29,8 @@ const (
 )
 
 // RedisGetByID func returns a Redis entity by ID
-//nolint:dupl
+//
+//nolint:dupl //needed :)
 func (rdb *RedisConnection) RedisGetByID(ctx context.Context, id uuid.UUID) (*model.Person, error) {
 	val, err := rdb.rdb.Get(ctx, id.String()).Result()
 	if err != nil {

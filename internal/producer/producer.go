@@ -20,6 +20,8 @@ func NewProducer(rdb *redis.Client) *RedisProducer {
 	return &RedisProducer{rdb: rdb}
 }
 
+const timeDur = 5 * time.Second
+
 // RedisProducer creates a new redis stream entry
 func (rdbClient *RedisProducer) RedisProducer(ctx context.Context) {
 	identificator := 0
@@ -28,7 +30,7 @@ func (rdbClient *RedisProducer) RedisProducer(ctx context.Context) {
 		case <-ctx.Done():
 			fmt.Println("Goroutine Closed...")
 			return
-		case <-time.After(5 * time.Second):
+		case <-time.After(timeDur * time.Second):
 			fmt.Println("Goroutine Closed...")
 			return
 		default:

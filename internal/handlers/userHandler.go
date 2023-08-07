@@ -1,4 +1,4 @@
-// // Package handlers provides HTTP request handler functions for a web service written in Go
+// Package handlers provides HTTP request handler functions for a web service written in Go
 package handlers
 
 // import (

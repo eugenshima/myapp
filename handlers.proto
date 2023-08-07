@@ -14,6 +14,25 @@ service personHandler {
     rpc Delete(DeleteRequest) returns (DeleteResponse) {}
     rpc Create(CreateRequest) returns (CreateResponse) {}
     rpc Update(UpdateRequest) returns (UpdateResponse) {}
+    rpc UploadImage(stream UploadImageRequest) returns (stream UploadImageResponse) {}
+    rpc DownloadImage(stream downloadImageRequest) returns (stream downloadImageResponse) {}
+}
+
+message downloadImageRequest {
+    bytes image = 1;
+    string name = 2;
+}
+
+message downloadImageResponse {
+
+}
+
+message UploadImageRequest {
+    string name = 1;
+}
+
+message UploadImageResponse {
+    bytes image = 1;
 }
 
 // GetByID Request/Response

@@ -45,7 +45,8 @@ func (db *UserMongoDBConnection) Signup(ctx context.Context, user *model.User) e
 }
 
 // GetAll func executes a query, which returns all users
-//nolint:dupl
+//
+//nolint:dupl //needed
 func (db *UserMongoDBConnection) GetAll(ctx context.Context) ([]*model.User, error) {
 	collection := db.client.Database("my_mongo_base").Collection("user")
 	filter := bson.M{}
