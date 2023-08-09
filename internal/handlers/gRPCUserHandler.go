@@ -4,11 +4,11 @@ package handlers
 import (
 	"context"
 
-	protos "github.com/eugenshima/myapp/proto_services"
-	"github.com/sirupsen/logrus"
-
 	"github.com/eugenshima/myapp/internal/model"
+	protos "github.com/eugenshima/myapp/proto_services"
+
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 )
 
 //go:generate mockery --name=GRPCUserService --case=underscore --output=./mocks

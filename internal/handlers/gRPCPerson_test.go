@@ -8,6 +8,7 @@ import (
 
 	"github.com/eugenshima/myapp/internal/handlers/mocks"
 	"github.com/eugenshima/myapp/internal/model"
+
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

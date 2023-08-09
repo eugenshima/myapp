@@ -16,9 +16,8 @@ import (
 	"github.com/eugenshima/myapp/internal/producer"
 	"github.com/eugenshima/myapp/internal/repository"
 	"github.com/eugenshima/myapp/internal/service"
-	"google.golang.org/grpc"
-
 	proto "github.com/eugenshima/myapp/proto_services"
+
 	"github.com/go-playground/validator"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/labstack/echo/v4"
@@ -26,6 +25,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"google.golang.org/grpc"
 )
 
 // CustomValidator is a custom validator struct

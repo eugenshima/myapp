@@ -8,8 +8,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/caarlos0/env/v9"
 	"github.com/eugenshima/myapp/internal/config"
+
+	"github.com/caarlos0/env/v9"
 	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -31,7 +32,7 @@ const (
 	Admin  = "admin"
 )
 
-// Admin Unary Interceptor defines the admin intercept interface
+// AdminUnaryInterceptor defines the admin intercept interface
 func AdminUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	cfg := config.Config{}
 	err := env.Parse(&cfg)
@@ -135,26 +136,31 @@ func GetPayloadFromToken(token string) (uuid.UUID, string, error) {
 	return id, role, nil
 }
 
+// WrappedStream struct represents ServerStream
 type WrappedStream struct {
 	grpc.ServerStream
 }
 
+// RecvMsg function wraps received message
 func (w *WrappedStream) RecvMsg(m interface{}) error {
 	logrus.Printf("received %T - %v\n", m, m)
 
 	return w.ServerStream.RecvMsg(m)
 }
 
+// SendMsg function wraps sent message
 func (w *WrappedStream) SendMsg(m interface{}) error {
 	logrus.Printf("sent %T - %v\n", m, m)
 
 	return w.ServerStream.SendMsg(m)
 }
 
+// newWrappedStream function is a constructor for WrappedStream struct
 func newWrappedStream(s grpc.ServerStream) grpc.ServerStream {
 	return &WrappedStream{s}
 }
 
+// ServerStreamInterceptor defines the stream interceptor interface
 func ServerStreamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	logrus.Println("Stream Interceptor PRE: ", info.FullMethod)
 	logrus.Println("Stream Interceptor POST: ", info.FullMethod)

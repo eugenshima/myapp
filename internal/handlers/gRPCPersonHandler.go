@@ -10,6 +10,7 @@ import (
 
 	"github.com/eugenshima/myapp/internal/model"
 	protos "github.com/eugenshima/myapp/proto_services"
+
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 )
@@ -134,7 +135,7 @@ func (s *GRPCPersonHandler) Update(ctx context.Context, req *protos.UpdateReques
 }
 
 // DownloadImage downloads image from given path
-func (h *GRPCPersonHandler) DownloadImage(req *protos.DownloadImageRequest, stream protos.PersonHandler_DownloadImageServer) error {
+func (s *GRPCPersonHandler) DownloadImage(req *protos.DownloadImageRequest, stream protos.PersonHandler_DownloadImageServer) error {
 	fmt.Println(req.Name)
 	imgname := req.Name
 	imgpath := filepath.Join("internal", "images", imgname)
@@ -170,7 +171,7 @@ func (h *GRPCPersonHandler) DownloadImage(req *protos.DownloadImageRequest, stre
 }
 
 // UploadImage uploads image from given path
-func (h *GRPCPersonHandler) UploadImage(stream protos.PersonHandler_UploadImageServer) error {
+func (s *GRPCPersonHandler) UploadImage(stream protos.PersonHandler_UploadImageServer) error {
 	dst, err := os.Create(filepath.Join("internal", "images", "test.png"))
 	if err != nil {
 		logrus.Errorf("failed to create file error: %v", err)
