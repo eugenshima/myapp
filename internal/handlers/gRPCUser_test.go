@@ -19,7 +19,7 @@ var (
 		Login:        "test",
 		Password:     []byte("test"),
 		Role:         "user",
-		RefreshToken: nil,
+		RefreshToken: []byte(nil),
 	}
 	str string
 )

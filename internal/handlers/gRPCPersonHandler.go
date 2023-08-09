@@ -2,13 +2,11 @@
 package handlers
 
 import (
-	"bufio"
-	shadowByte "bytes"
 	"context"
-	"image"
-	"image/jpeg"
+	"fmt"
+	"io"
 	"os"
-	"sync"
+	"path/filepath"
 
 	"github.com/eugenshima/myapp/internal/model"
 	protos "github.com/eugenshima/myapp/proto_services"
@@ -116,8 +114,13 @@ func (s *GRPCPersonHandler) Create(ctx context.Context, req *protos.CreateReques
 
 // Update function receives request to Update person in database
 func (s *GRPCPersonHandler) Update(ctx context.Context, req *protos.UpdateRequest) (*protos.UpdateResponse, error) {
+	ID, err := uuid.Parse(req.Id)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{"id": req.Id}).Errorf("GetByID: %v", err)
+		return nil, err
+	}
 	updatePerson := model.Person{
-		ID:        uuid.MustParse(req.Person.Id),
+		ID:        ID,
 		Name:      req.Person.Name,
 		Age:       req.Person.Age,
 		IsHealthy: req.Person.IsHealthy,
@@ -130,123 +133,68 @@ func (s *GRPCPersonHandler) Update(ctx context.Context, req *protos.UpdateReques
 	return &protos.UpdateResponse{Id: id.String()}, nil
 }
 
-// UploadImage uploads image to server
-func (s *GRPCPersonHandler) UploadImage(src protos.PersonHandler_UploadImageServer) error {
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		logrus.Info("Stream started")
-		for {
-			rr, err := src.Recv()
-			if err != nil {
-				break
-			}
-			logrus.Infof("Received message: %v", rr)
-			img, err := ImageToBytes(rr.Name)
-			if err != nil {
-				logrus.WithFields(logrus.Fields{"image": img}).Errorf("saveFrames: %v", err)
-				src.Context().Done()
-			}
-			finalImg, err := bytesToImg(img)
-			if err != nil {
-				logrus.WithFields(logrus.Fields{"image": img}).Errorf("saveFrames: %v", err)
-				src.Context().Done()
-			}
-			err = src.Send(&protos.UploadImageResponse{
-				Image: finalImg,
-			})
-			if err != nil {
-				logrus.WithFields(logrus.Fields{"image": img}).Errorf("Send: %v", err)
-				src.Context().Done()
-			}
+// DownloadImage downloads image from given path
+func (h *GRPCPersonHandler) DownloadImage(req *protos.DownloadImageRequest, stream protos.PersonHandler_DownloadImageServer) error {
+	fmt.Println(req.Name)
+	imgname := req.Name
+	imgpath := filepath.Join("internal", "images", imgname)
+	cleanPath := filepath.Clean(imgpath)
+	file, err := os.Open(cleanPath)
+	if err != nil {
+		logrus.Errorf("failed to open file error: %v", err)
+		return err
+	}
+	defer func() {
+		errClose := file.Close()
+		if errClose != nil {
+			logrus.Errorf("failed to close file error: %v", errClose)
 		}
-
-		wg.Done()
-		logrus.Info("Stream finished")
 	}()
-	wg.Wait()
 
+	bufferSize := 4096
+	buffer := make([]byte, bufferSize)
+	bytesRead, err := file.Read(buffer)
+	if err != nil && err != io.EOF {
+		logrus.Errorf("failed to read file error: %v", err)
+		return err
+	}
+	if bytesRead == 0 {
+		return nil
+	}
+	err = stream.Send(&protos.DownloadImageResponse{Image: buffer[:bytesRead]})
+	if err != nil {
+		logrus.Errorf("failed to send GRPC response: %v", err)
+		return err
+	}
 	return nil
 }
 
-// DownloadImage downloads the image from the server
-func (s *GRPCPersonHandler) DownloadImage(src protos.PersonHandler_DownloadImageServer) error {
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		logrus.Info("Stream started")
-		for {
-			rr, err := src.Recv()
-			if err != nil {
-				break
-			}
-			logrus.Infof("Received message: %v", rr.Name)
-			img, err := ImageToBytes(rr.Name)
-			if err != nil {
-				logrus.WithFields(logrus.Fields{"image": img}).Errorf("saveFrames: %v", err)
-			}
-			wg.Done()
-			logrus.Info("Stream finished")
+// UploadImage uploads image from given path
+func (h *GRPCPersonHandler) UploadImage(stream protos.PersonHandler_UploadImageServer) error {
+	dst, err := os.Create(filepath.Join("internal", "images", "test.png"))
+	if err != nil {
+		logrus.Errorf("failed to create file error: %v", err)
+		return err
+	}
+	defer func() {
+		errClose := dst.Close()
+		if errClose != nil {
+			logrus.Errorf("failed to close error: %v", errClose)
 		}
 	}()
-	wg.Wait()
-
+	for {
+		fileChunk, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			logrus.Errorf("failed to receive data chunk error: %v", err)
+			return err
+		}
+		_, err = dst.Write(fileChunk.Image)
+		if err != nil {
+			logrus.Errorf("failed to write data chunk to the dst file error: %v", err)
+		}
+	}
 	return nil
-}
-
-// ImageToBytes converts image from jpeg to []byte
-//
-//nolint:gosec // needed
-func ImageToBytes(receivedPath string) ([]byte, error) {
-	fileToBeUploaded := receivedPath
-	file, err := os.Open(fileToBeUploaded)
-	if err != nil {
-		logrus.WithFields(logrus.Fields{"file": file}).Errorf("Open: %v", err)
-		return nil, err
-	}
-
-	defer func() {
-		if err = file.Close(); err != nil {
-			logrus.Errorf("Close: %v", err)
-		}
-	}()
-
-	fileInfo, _ := file.Stat()
-	var size = fileInfo.Size()
-	bytes := make([]byte, size)
-
-	buffer := bufio.NewReader(file)
-	_, err = buffer.Read(bytes)
-	if err != nil {
-		logrus.WithFields(logrus.Fields{"bytes": bytes}).Errorf("Read: %v", err)
-		return nil, err
-	}
-	return bytes, nil
-}
-
-// bytesToImg converts image from []byte to image
-func bytesToImg(imgByte []byte) ([]byte, error) {
-	img, _, err := image.Decode(shadowByte.NewReader(imgByte))
-	if err != nil {
-		logrus.Errorf("Decode: %v", err)
-		return nil, err
-	}
-
-	out, _ := os.Create("./internal/images/img.jpeg")
-	defer func() {
-		if err = out.Close(); err != nil {
-			logrus.Errorf("Close: %v", err)
-		}
-	}()
-
-	var opts jpeg.Options
-	opts.Quality = 1
-
-	err = jpeg.Encode(out, img, &opts)
-	if err != nil {
-		logrus.Errorf("Encode: %v", err)
-		return nil, err
-	}
-	return []byte(out.Name()), nil
 }

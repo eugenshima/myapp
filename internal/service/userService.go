@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/eugenshima/myapp/internal/config"
-	mdlwr "github.com/eugenshima/myapp/internal/middleware"
+	mdlwr "github.com/eugenshima/myapp/internal/interceptors"
 	"github.com/eugenshima/myapp/internal/model"
 
 	"github.com/golang-jwt/jwt"
@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	accessTokenTTL  = 24 * time.Hour
+	accessTokenTTL  = 60 * time.Minute
 	refreshTokenTTL = 72 * time.Hour
 )
 

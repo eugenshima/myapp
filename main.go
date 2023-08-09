@@ -12,6 +12,7 @@ import (
 	cfgrtn "github.com/eugenshima/myapp/internal/config"
 	"github.com/eugenshima/myapp/internal/consumer"
 	"github.com/eugenshima/myapp/internal/handlers"
+	"github.com/eugenshima/myapp/internal/interceptors"
 	"github.com/eugenshima/myapp/internal/producer"
 	"github.com/eugenshima/myapp/internal/repository"
 	"github.com/eugenshima/myapp/internal/service"
@@ -169,7 +170,10 @@ func main() {
 	if err != nil {
 		logrus.Fatalf("cannot create listener: %s", err)
 	}
-	serverRegistrar := grpc.NewServer()
+	serverRegistrar := grpc.NewServer(
+		grpc.UnaryInterceptor(interceptors.AdminUnaryInterceptor),
+		grpc.StreamInterceptor(interceptors.ServerStreamInterceptor),
+	)
 	proto.RegisterPersonHandlerServer(serverRegistrar, handlr)
 	proto.RegisterUserHandlerServer(serverRegistrar, uhandlr)
 	err = serverRegistrar.Serve(lis)

@@ -11,6 +11,8 @@ import (
 	"github.com/google/uuid"
 )
 
+//go:generate mockery --name=GRPCUserService --case=underscore --output=./mocks
+
 // GRPCUserHandler is a struct for User handler
 type GRPCUserHandler struct {
 	srv GRPCUserService

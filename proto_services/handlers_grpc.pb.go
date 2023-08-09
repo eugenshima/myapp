@@ -27,8 +27,8 @@ type PersonHandlerClient interface {
 	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
 	Create(ctx context.Context, in *CreateRequest, opts ...grpc.CallOption) (*CreateResponse, error)
 	Update(ctx context.Context, in *UpdateRequest, opts ...grpc.CallOption) (*UpdateResponse, error)
+	DownloadImage(ctx context.Context, in *DownloadImageRequest, opts ...grpc.CallOption) (PersonHandler_DownloadImageClient, error)
 	UploadImage(ctx context.Context, opts ...grpc.CallOption) (PersonHandler_UploadImageClient, error)
-	DownloadImage(ctx context.Context, opts ...grpc.CallOption) (PersonHandler_DownloadImageClient, error)
 }
 
 type personHandlerClient struct {
@@ -84,8 +84,40 @@ func (c *personHandlerClient) Update(ctx context.Context, in *UpdateRequest, opt
 	return out, nil
 }
 
+func (c *personHandlerClient) DownloadImage(ctx context.Context, in *DownloadImageRequest, opts ...grpc.CallOption) (PersonHandler_DownloadImageClient, error) {
+	stream, err := c.cc.NewStream(ctx, &PersonHandler_ServiceDesc.Streams[0], "/personHandler/DownloadImage", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &personHandlerDownloadImageClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type PersonHandler_DownloadImageClient interface {
+	Recv() (*DownloadImageResponse, error)
+	grpc.ClientStream
+}
+
+type personHandlerDownloadImageClient struct {
+	grpc.ClientStream
+}
+
+func (x *personHandlerDownloadImageClient) Recv() (*DownloadImageResponse, error) {
+	m := new(DownloadImageResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *personHandlerClient) UploadImage(ctx context.Context, opts ...grpc.CallOption) (PersonHandler_UploadImageClient, error) {
-	stream, err := c.cc.NewStream(ctx, &PersonHandler_ServiceDesc.Streams[0], "/personHandler/UploadImage", opts...)
+	stream, err := c.cc.NewStream(ctx, &PersonHandler_ServiceDesc.Streams[1], "/personHandler/UploadImage", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +127,7 @@ func (c *personHandlerClient) UploadImage(ctx context.Context, opts ...grpc.Call
 
 type PersonHandler_UploadImageClient interface {
 	Send(*UploadImageRequest) error
-	Recv() (*UploadImageResponse, error)
+	CloseAndRecv() (*UploadImageResponse, error)
 	grpc.ClientStream
 }
 
@@ -107,39 +139,11 @@ func (x *personHandlerUploadImageClient) Send(m *UploadImageRequest) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *personHandlerUploadImageClient) Recv() (*UploadImageResponse, error) {
+func (x *personHandlerUploadImageClient) CloseAndRecv() (*UploadImageResponse, error) {
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
 	m := new(UploadImageResponse)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func (c *personHandlerClient) DownloadImage(ctx context.Context, opts ...grpc.CallOption) (PersonHandler_DownloadImageClient, error) {
-	stream, err := c.cc.NewStream(ctx, &PersonHandler_ServiceDesc.Streams[1], "/personHandler/DownloadImage", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &personHandlerDownloadImageClient{stream}
-	return x, nil
-}
-
-type PersonHandler_DownloadImageClient interface {
-	Send(*DownloadImageRequest) error
-	Recv() (*DownloadImageResponse, error)
-	grpc.ClientStream
-}
-
-type personHandlerDownloadImageClient struct {
-	grpc.ClientStream
-}
-
-func (x *personHandlerDownloadImageClient) Send(m *DownloadImageRequest) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *personHandlerDownloadImageClient) Recv() (*DownloadImageResponse, error) {
-	m := new(DownloadImageResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -155,8 +159,8 @@ type PersonHandlerServer interface {
 	Delete(context.Context, *DeleteRequest) (*DeleteResponse, error)
 	Create(context.Context, *CreateRequest) (*CreateResponse, error)
 	Update(context.Context, *UpdateRequest) (*UpdateResponse, error)
+	DownloadImage(*DownloadImageRequest, PersonHandler_DownloadImageServer) error
 	UploadImage(PersonHandler_UploadImageServer) error
-	DownloadImage(PersonHandler_DownloadImageServer) error
 	mustEmbedUnimplementedPersonHandlerServer()
 }
 
@@ -179,11 +183,11 @@ func (UnimplementedPersonHandlerServer) Create(context.Context, *CreateRequest) 
 func (UnimplementedPersonHandlerServer) Update(context.Context, *UpdateRequest) (*UpdateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Update not implemented")
 }
+func (UnimplementedPersonHandlerServer) DownloadImage(*DownloadImageRequest, PersonHandler_DownloadImageServer) error {
+	return status.Errorf(codes.Unimplemented, "method DownloadImage not implemented")
+}
 func (UnimplementedPersonHandlerServer) UploadImage(PersonHandler_UploadImageServer) error {
 	return status.Errorf(codes.Unimplemented, "method UploadImage not implemented")
-}
-func (UnimplementedPersonHandlerServer) DownloadImage(PersonHandler_DownloadImageServer) error {
-	return status.Errorf(codes.Unimplemented, "method DownloadImage not implemented")
 }
 func (UnimplementedPersonHandlerServer) mustEmbedUnimplementedPersonHandlerServer() {}
 
@@ -288,39 +292,16 @@ func _PersonHandler_Update_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
-func _PersonHandler_UploadImage_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(PersonHandlerServer).UploadImage(&personHandlerUploadImageServer{stream})
-}
-
-type PersonHandler_UploadImageServer interface {
-	Send(*UploadImageResponse) error
-	Recv() (*UploadImageRequest, error)
-	grpc.ServerStream
-}
-
-type personHandlerUploadImageServer struct {
-	grpc.ServerStream
-}
-
-func (x *personHandlerUploadImageServer) Send(m *UploadImageResponse) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func (x *personHandlerUploadImageServer) Recv() (*UploadImageRequest, error) {
-	m := new(UploadImageRequest)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 func _PersonHandler_DownloadImage_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(PersonHandlerServer).DownloadImage(&personHandlerDownloadImageServer{stream})
+	m := new(DownloadImageRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(PersonHandlerServer).DownloadImage(m, &personHandlerDownloadImageServer{stream})
 }
 
 type PersonHandler_DownloadImageServer interface {
 	Send(*DownloadImageResponse) error
-	Recv() (*DownloadImageRequest, error)
 	grpc.ServerStream
 }
 
@@ -332,8 +313,26 @@ func (x *personHandlerDownloadImageServer) Send(m *DownloadImageResponse) error 
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *personHandlerDownloadImageServer) Recv() (*DownloadImageRequest, error) {
-	m := new(DownloadImageRequest)
+func _PersonHandler_UploadImage_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(PersonHandlerServer).UploadImage(&personHandlerUploadImageServer{stream})
+}
+
+type PersonHandler_UploadImageServer interface {
+	SendAndClose(*UploadImageResponse) error
+	Recv() (*UploadImageRequest, error)
+	grpc.ServerStream
+}
+
+type personHandlerUploadImageServer struct {
+	grpc.ServerStream
+}
+
+func (x *personHandlerUploadImageServer) SendAndClose(m *UploadImageResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *personHandlerUploadImageServer) Recv() (*UploadImageRequest, error) {
+	m := new(UploadImageRequest)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -370,15 +369,13 @@ var PersonHandler_ServiceDesc = grpc.ServiceDesc{
 	},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "UploadImage",
-			Handler:       _PersonHandler_UploadImage_Handler,
-			ServerStreams: true,
-			ClientStreams: true,
-		},
-		{
 			StreamName:    "DownloadImage",
 			Handler:       _PersonHandler_DownloadImage_Handler,
 			ServerStreams: true,
+		},
+		{
+			StreamName:    "UploadImage",
+			Handler:       _PersonHandler_UploadImage_Handler,
 			ClientStreams: true,
 		},
 	},

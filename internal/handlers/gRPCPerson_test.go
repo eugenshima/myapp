@@ -26,6 +26,7 @@ var (
 // TestMain execute all tests
 func TestMain(m *testing.M) {
 	mockPersonService = new(mocks.PersonService)
+	mockUserService = new(mocks.UserService)
 	exitVal := m.Run()
 	os.Exit(exitVal)
 }
